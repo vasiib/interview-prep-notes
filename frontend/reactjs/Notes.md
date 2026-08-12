@@ -16,6 +16,9 @@ React Js
 10. [Explain useState](#q10)
 11. [Explain useEffect and its dependency array.](#q11)
 12. [Difference between useEffect and useLayoutEffect.](#q12)
+13. [How does React Fiber work?](#q13)
+14. [How does Concurrent Rendering improve performance?](#q14)
+15. [What is Automatic Batching?](#q15)
 
 ---
 
@@ -892,3 +895,246 @@ Browser Paints Screen
 
 * **Default to `useEffect`** for 99% of side effects to keep your UI responsive and avoid blocking renders.
 * **Use `useLayoutEffect`** only when you observe visual flickering caused by layout measurement logic or direct DOM updates.
+
+[Back to question list](#question-list)
+
+<a id="q13"></a>
+
+### 13. How does React Fiber work?
+
+**React Fiber** is the complete rewrite of React’s core reconciliation engine introduced in React 16. Its primary goal is to make rendering incremental, non-blocking, and performant—especially for complex user interfaces with heavy animations, user inputs, or large component trees.
+
+---
+
+## The Problem Fiber Solved: The Stack Reconciler
+
+Before Fiber, React used the **Stack Reconciler**. 
+* Whenever state changed, React recursively traversed the component tree and computed updates in a single, uninterrupted synchronous block.
+* **The issue:** If the component tree was large, this synchronous work could take longer than 16 milliseconds (the frame budget for 60fps displays), causing the browser to drop frames. This led to unresponsive UIs, input lag, and stuttering animations.
+
+---
+
+## Key Concepts of React Fiber
+
+React Fiber solved this by introducing a new data structure (called a **Fiber node**) and breaking rendering down into small, pauseable units of work.
+
+### 1. What is a "Fiber"?
+A Fiber is a plain JavaScript object that represents a unit of work and corresponds directly to a React element/component. Unlike traditional JS call stack frames, Fiber nodes are stored on the heap as a linked list, which allows React to pause, resume, or discard execution at any time.
+
+Each Fiber node maintains pointers to related nodes:
+* `child`: Points directly to its first child component.
+* `sibling`: Points to its next sibling component.
+* `return`: Points back to its parent component (acting as a return address).
+
+### 2. Incremental Rendering & Priority Scheduling
+React Fiber divides work into tiny chunks and uses a priority scheduler:
+* React assigns priorities to updates (e.g., discrete user input like typing/clicking has higher priority than background data fetching or off-screen rendering).
+* If high-priority user input comes in while React is computing a low-priority render, React **pauses** the current render, processes the high-priority update, and then resumes or restarts the low-priority work.
+
+---
+
+## Two-Phase Execution Architecture
+
+Fiber maps cleanly onto React's internal execution phases:
+
+### 1. Render Phase (Reconciliation)
+* **Asynchronous & Pauseable.**
+* React traverses the Fiber tree and computes the diff between the current UI and the target state.
+* Creates a "work-in-progress" Fiber tree alongside the current tree (a mechanism known as **Double Buffering**).
+* Generates an *effect list* containing all necessary DOM updates (insertions, updates, deletions).
+* Can be paused, aborted, or restarted.
+
+### 2. Commit Phase
+* **Synchronous & Uninterruptible.**
+* React takes the prepared effect list and applies all DOM mutations in one fast step.
+* Executes layout effects (`useLayoutEffect`) and schedules passive effects (`useEffect`).
+* Swaps the "work-in-progress" tree to become the new "current" tree.
+
+---
+
+## Double Buffering Mechanism
+
+Similar to graphic engines, React uses **Double Buffering** to prevent incomplete renders from showing on screen:
+* **Current Tree:** The Fiber tree representing what is currently visible on screen.
+* **Work-In-Progress (WIP) Tree:** The Fiber tree React constructs in memory during the Render phase.
+
+When the Commit phase finishes, React simply flips its internal pointer so the WIP tree becomes the Current tree instantly, ensuring smooth visual updates.
+
+---
+
+## Summary Cheat Sheet
+
+| Aspect | Stack Reconciler (Legacy) | Fiber Reconciler (Modern) |
+| :--- | :--- | :--- |
+| **Execution Style** | Synchronous & Recursive | Asynchronous & Incremental |
+| **Interruptibility** | Cannot be paused | Pauseable, resumed, or discarded |
+| **Data Structure** | JS Call Stack | Linked List on Heap |
+| **Key Capability** | Simple rendering | Concurrent Features, Priority Scheduling |
+
+[Back to question list](#question-list)
+
+<a id="q14"></a>
+
+### 14. How does Concurrent Rendering improve performance?
+
+**Concurrent Rendering** (introduced in React 18) is an architectural feature built on top of the React Fiber engine that allows React to interrupt, pause, resume, or abandon a render in progress.
+
+Before Concurrent Rendering, rendering was synchronous and blocking. Once React started rendering an update, nothing could stop it until the entire component tree was processed. Concurrent Rendering fundamentally improves performance and user responsiveness in several key ways.
+
+---
+
+## 1. Eliminating Main-Thread Blocking
+
+In traditional rendering, a heavy re-render (such as filtering a list of 10,000 items) blocks the browser's single thread. User inputs, clicks, and animations freeze until rendering completes.
+
+With Concurrent Rendering, React breaks rendering work into tiny tasks. Between these tasks, React yields control back to the browser so it can process urgent user events (like keypresses or mouse clicks) immediately, keeping the application feeling smooth and responsive.
+
+---
+
+## 2. State Update Priority & Interruptible Rendering
+
+Concurrent Rendering enables React to assign different **priorities** to state updates:
+
+* **Urgent Updates:** Direct user interactions requiring immediate visual feedback (typing in an input field, clicking a tab, toggling a switch).
+* **Transition / Non-Urgent Updates:** Secondary updates where a brief delay is acceptable (filtering search results, rendering complex charts, loading page views).
+
+If a user types a new character while React is halfway through rendering a heavy, low-priority list, React **interrupts** the low-priority render, renders the typed character immediately (high priority), and then resumes or restarts the background list render.
+
+### Key Hooks for Transitions:
+
+* `useTransition()`: Marks a state update as non-urgent so it can be interrupted by higher-priority inputs.
+* `useDeferredValue()`: Defers updating a non-critical value until urgent updates finish processing.
+
+```jsx
+import React, { useState, useTransition } from 'react';
+
+function SearchComponent() {
+  const [text, setText] = useState('');
+  const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+
+  function handleChange(e) {
+    // 1. Urgent update: update input text immediately
+    setText(e.target.value);
+
+    // 2. Non-urgent transition: defer heavy list filtering
+    startTransition(() => {
+      setQuery(e.target.value);
+    });
+  }
+
+  return (
+    <div>
+      <input value={text} onChange={handleChange} />
+      {isPending ? <p>Loading list...</p> : <HeavyList query={query} />}
+    </div>
+  );
+}
+```
+
+---
+
+## 3. Reusable States via Off-Screen Rendering
+
+Concurrent Rendering enables React to prepare UI in the background without rendering it directly to the real DOM. 
+
+For instance, when switching tabs, React can keep hidden tab states intact in memory and restore them instantly when clicked back, eliminating full re-fetch and re-render overhead.
+
+---
+
+## 4. Selective Hydration with Streaming SSR
+
+When paired with Server-Side Rendering (SSR) and `<Suspense>`, Concurrent Rendering allows React to:
+* Stream HTML from the server incrementally as components resolve.
+* **Selectively hydrate** the specific parts of the page the user interacts with first, rather than waiting for the entire application JS bundle to download and hydrate before becoming interactive.
+
+---
+
+## Summary Cheat Sheet
+
+| Performance Feature | Core Mechanism | User Experience Impact |
+| :--- | :--- | :--- |
+| **Non-blocking UI** | Yields main thread back to browser periodically | Fluid inputs and animations during heavy re-renders |
+| **Interruptible Render** | Pauses low-priority work when urgent inputs arrive | Instant response to typing and clicks |
+| **Selective Hydration** | Prioritizes hydrating components clicked by the user | Dramatically faster Time-to-Interactive (TTI) |
+
+
+[Back to question list](#question-list)
+
+<a id="q15"></a>
+
+### 15. What is Automatic Batching?
+
+**Automatic Batching** is a performance optimization feature in React 18 that automatically groups multiple state updates into a single re-render, regardless of where those state updates occur.
+
+---
+
+## What Problem Does It Solve?
+
+Before React 18, React only batched state updates that occurred inside **React event handlers** (like button click events or form submit handlers). If state updates happened inside asynchronous callbacks—such as `fetch` promises, `setTimeout`, or native DOM event listeners—React would re-render the component separately for **every single state update**.
+
+### Code Comparison
+
+```jsx
+function App() {
+  const [count, setCount] = useState(0);
+  const [flag, setFlag] = useState(false);
+
+  // 1. Inside React Event Handlers (Batched in React 17 AND React 18)
+  function handleClick() {
+    setCount(c => c + 1);
+    setFlag(f => !f);
+    // Result: Only 1 re-render total
+  }
+
+  // 2. Inside Asynchronous Code (Promises, Timers, Native Events)
+  function handleAsync() {
+    fetch('/api/data').then(() => {
+      setCount(c => c + 1);
+      setFlag(f => !f);
+      // React 17: Causes 2 separate re-renders!
+      // React 18: Automatically batched into 1 re-render!
+    });
+  }
+}
+```
+
+---
+
+## Key Benefits
+
+1. **Better Application Performance:** Fewer re-renders mean less Virtual DOM reconciliation work and fewer DOM mutations.
+2. **Prevents Half-Rendered UI States:** Grouping updates ensures components don't render intermediate, incomplete states (e.g., where `count` is updated but `flag` isn't yet).
+3. **Zero Configuration:** Works out of the box when using React 18's `createRoot` API.
+
+---
+
+## How to Opt Out (`flushSync`)
+
+In rare cases where you need a state update to synchronously reflect in the DOM before executing subsequent code, React provides the `flushSync` API to opt out of batching:
+
+```jsx
+import { flushSync } from 'react-dom';
+
+function handleClick() {
+  flushSync(() => {
+    setCount(c => c + 1); // Forces an immediate, synchronous DOM update
+  });
+  // Real DOM is updated here
+
+  flushSync(() => {
+    setFlag(f => !f); // Forces another immediate DOM update
+  });
+}
+```
+
+---
+
+## Summary Cheat Sheet
+
+| Context | React 17 & Earlier | React 18+ (Automatic Batching) |
+| :--- | :--- | :--- |
+| **React Event Handlers** | Batched (1 re-render) | Batched (1 re-render) |
+| **Promises / Async Callbacks** | Not batched (N re-renders) | **Batched (1 re-render)** |
+| **`setTimeout` / `setInterval`** | Not batched (N re-renders) | **Batched (1 re-render)** |
+| **Native DOM Event Listeners** | Not batched (N re-renders) | **Batched (1 re-render)** |
