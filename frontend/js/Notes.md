@@ -20,7 +20,20 @@ Javascript
 14. [What is the difference between `map`, `filter`, and `reduce`?](#q14)
 15. [What is a pure function?](#q15)
 16. [What is the shortest program in JS?](#q16)
-
+17. [How do memory leaks happen in JS and how to detect/avoid them?](#q17)
+18. [Deep dive: microtasks, macrotasks and rendering steps](#q18)
+19. [How JavaScript engines optimize code (hidden classes, inline caches)?](#q19)
+20. [How V8 garbage collection and memory management work?](#q20)
+21. [Module loading and circular dependencies (CJS vs ESM)](#q21)
+22. [Immutability patterns and structural sharing](#q22)
+23. [Performance profiling techniques and tools](#q23)
+24. [Security in browser JS: XSS, CSP and safe DOM updates](#q24)
+25. [Concurrency in the browser: Web Workers and SharedArrayBuffer](#q25)
+26. [Design patterns and architecture for large JS apps (pub/sub, observer)](#q26)
+27. [What is sparse array and how in built methods behave?](#q27)
+28. [](#q28)
+29. [](#q29)
+30. [](#q30)
 ---
 
 ## Answers
@@ -558,7 +571,7 @@ Javascript
     /**
     * Create a shallow copy of an object or array.
     * Primitives are returned as-is.
-    */
+    
     function shallowCopy(value) {
         if (Array.isArray(value)) {
             return [...value];
@@ -577,7 +590,7 @@ Javascript
     /**
     * Create a deep copy of plain objects, arrays, maps, sets, dates, and regex.
     * Functions and symbols are copied by reference.
-    */
+    
     function deepCopy(value, seen = new WeakMap()) {
         // Handle primitive types and functions
         // For all other data types, the type of value will be "object" (including null), except for functions, which will have the type "function". Therefore, we can check if the value is null or not an object to determine if it's a primitive type or a function.
@@ -678,6 +691,378 @@ Javascript
 <a id="q16"></a>
 
 ### 16. What is the shortest program in JS?
+
+- The shortest program in JS is an empty js file. When an empty js file is executed, a global execution context is created, and the global object is created. The 'this' keyword in the global execution context refers to the global object. The global object contains all the global variables and functions, and it is accessible from anywhere in the code.
+
+[Back to question list](#question-list)
+
+<a id="q17"></a>
+
+### 17. How do memory leaks happen in JS and how to detect/avoid them?
+
+- Memory leaks occur when objects are kept reachable and cannot be garbage collected. Common causes:
+    - Forgotten timers / intervals (not cleared)
+    - Detached DOM nodes referenced by JS
+    - Large caches or global references
+    - Closures that retain large outer scope objects
+
+- Detection: take heap snapshots in Chrome DevTools, compare retained sizes, use Allocation instrumentation and Timeline.
+
+Example (leak via interval):
+```
+function startLeakyTimer() {
+    const big = new Array(1e6).fill('*');
+    setInterval(() => {
+        // capturing `big` in closure prevents GC
+        console.log(big[0]);
+    }, 1000);
+}
+startLeakyTimer();
+```
+
+Fix: clear the interval when no longer needed or avoid capturing large objects.
+```
+const id = setInterval(...);
+clearInterval(id);
+```
+
+[Back to question list](#question-list)
+
+<a id="q18"></a>
+
+### 18. Deep dive: microtasks, macrotasks and rendering steps
+
+- Macrotasks (tasks): `setTimeout`, `setInterval`, I/O callbacks, UI events.
+- Microtasks: `Promise` callbacks, `MutationObserver`, queueMicrotask — run after current task but before rendering and before the next macrotask.
+- Rendering steps: browser paints occur after microtask checkpoints; `requestAnimationFrame` callbacks run before paint.
+
+Order example:
+```
+console.log('script start');
+setTimeout(() => console.log('timeout'), 0);
+Promise.resolve().then(() => console.log('promise'));
+console.log('script end');
+// Output: script start, script end, promise, timeout
+```
+
+[Back to question list](#question-list)
+
+<a id="q19"></a>
+
+### 19. How JavaScript engines optimize code (hidden classes, inline caches)?
+
+- Engines (V8) optimize property access using hidden classes (object shapes) and inline caches (ICs).
+- Creating objects with the same shape (same properties added in same order) allows optimized, fast access. Changing shape deoptimizes and triggers re-IC.
+
+Example (bad vs good shape stability):
+```
+// Bad: different shapes
+const a = {x:1};
+const b = {y:2};
+
+// Good: consistent shape
+function Point(x,y){ this.x = x; this.y = y; }
+const p1 = new Point(1,2);
+const p2 = new Point(3,4);
+```
+
+Recommendation: keep object shapes stable, avoid adding properties dynamically in hot paths, prefer hidden class-friendly patterns.
+
+[Back to question list](#question-list)
+
+<a id="q20"></a>
+
+### 20. How V8 garbage collection and memory management work?
+
+- Overview:
+    - V8 uses a generational garbage collector with separate spaces for short-lived and long-lived objects.
+    - Young generation (new space): optimized for short-lived objects using a copying collector (from-space / to-space). Surviving objects are promoted to the old generation after a few GC cycles.
+    - Old generation: uses a mark-sweep / mark-compact collector for longer-lived objects. There is also a Large Object Space (LOS) for very big allocations (ArrayBuffers, large arrays) which is managed separately.
+
+- Key algorithms and optimizations:
+    - Scavenge (minor GC) — fast copying collection for new space.
+    - Mark-sweep / Mark-compact (major GC) — used for the old generation; compaction reduces fragmentation.
+    - Incremental marking and concurrent sweeping reduce pause times.
+    - Optimization of allocation paths: bump-pointer allocation in new space is very fast.
+
+- What triggers GC and why it matters:
+    - GC runs when spaces fill up, when allocation cannot be satisfied, or due to heuristics balancing throughput and pause times.
+    - Frequent allocations in hot paths can increase minor GC frequency; many long-lived allocations push pressure to the old generation and cause expensive major GCs.
+
+- Practical tips to reduce GC pressure:
+    - Avoid accidentally retaining large objects (closures holding big arrays, global caches, DOM references).
+    - Keep object "shapes" stable to avoid deoptimizations that indirectly increase allocations.
+    - Use streaming or chunked processing for large data instead of building huge in-memory arrays.
+    - For numeric buffers, prefer TypedArrays or ArrayBuffer to reduce object churn.
+    - In Node, tune memory with `--max-old-space-size` when necessary, and avoid forcing large synchronous allocations.
+
+- Tools and diagnostics:
+    - Chrome DevTools: Memory tab (heap snapshots), Allocation instrumentation (record allocations over time), Timeline/Performance for long pauses.
+    - Node.js flags: `--inspect`, `--trace-gc`, `--trace-gc-verbose`, and `--max-old-space-size=<MB>`.
+
+- Example: allocation-heavy code (bad) vs improved approach (better):
+
+Bad (creates many short-lived objects and a big retained array):
+```
+function createMany() {
+    const arr = [];
+    for (let i = 0; i < 1e6; i++) {
+        arr.push({i, v: new Array(20).fill(i)});
+    }
+    return arr; // keeps everything alive
+}
+
+const big = createMany();
+```
+
+Better (process in chunks and release references):
+```
+function processInChunks(processFn) {
+    for (let chunk = 0; chunk < 100; chunk++) {
+        const items = new Array(10000).fill(0).map((_, i) => ({i: chunk*10000 + i}));
+        processFn(items);
+        // drop reference to allow GC
+    }
+}
+
+processInChunks(items => { /* handle and discard items  });
+```
+
+Node example to inspect GC behavior:
+```
+node --inspect --trace-gc --max-old-space-size=2048 app.js
+// Open chrome://inspect to profile and take heap snapshots
+```
+
+[Back to question list](#question-list)
+
+<a id="q21"></a>
+
+### 21. Module loading and circular dependencies (CJS vs ESM)
+
+- CommonJS (Node `require`) executes modules synchronously and exports `module.exports` object. Circular deps can get partial exports (the module object exists but may not be fully initialized).
+- ESM (`import`/`export`) uses static analysis and live bindings; circular references can resolve to bindings but initialization order matters.
+
+CommonJS circular example:
+```
+// a.js
+const b = require('./b');
+module.exports = { name: 'a', fromB: b.name };
+
+// b.js
+const a = require('./a');
+module.exports = { name: 'b', fromA: a.name };
+```
+`b.fromA` may be `undefined` because `a` wasn't finished executing when required.
+
+[Back to question list](#question-list)
+
+<a id="q22"></a>
+
+### 22. Immutability patterns and structural sharing
+
+- Immutable data helps reason about state and avoid bugs in concurrent/async code. `Object.freeze()` is shallow; libraries like Immer provide ergonomic immutable updates with structural sharing.
+
+Shallow freeze example:
+```
+const obj = Object.freeze({x:1});
+obj.x = 2; // no effect in strict mode throws
+```
+
+Immer example:
+```
+import produce from 'immer';
+const state = {items: [1,2]};
+const next = produce(state, draft => { draft.items.push(3); });
+```
+
+[Back to question list](#question-list)
+
+<a id="q23"></a>
+
+### 23. Performance profiling techniques and tools
+
+- Tools: Chrome DevTools Performance & Memory tabs, Lighthouse, `node --inspect`, `clinic`, `perf`.
+- Workflow: reproduce scenario → record CPU/profile and heap snapshots → find hot functions and retained objects → iterate fix → reprofile.
+
+Quick Node inspect example:
+```
+node --inspect-brk server.js
+// Open chrome://inspect and start a CPU profile
+```
+
+[Back to question list](#question-list)
+
+<a id="q24"></a>
+
+### 24. Security in browser JS: XSS, CSP and safe DOM updates
+
+- Avoid inserting untrusted HTML with `innerHTML`. Use `textContent` or sanitize with libraries (DOMPurify).
+- Use Content Security Policy (CSP) headers to limit script sources.
+
+Unsafe example:
+```
+el.innerHTML = userInput; // XSS risk
+```
+Safe alternative:
+```
+el.textContent = userInput;
+// or sanitize: el.innerHTML = DOMPurify.sanitize(userInput);
+```
+
+[Back to question list](#question-list)
+
+<a id="q25"></a>
+
+### 25. Concurrency in the browser: Web Workers and SharedArrayBuffer
+
+- Worker types and use-cases:
+    - Dedicated Worker: one-to-one with the main thread — good for offloading CPU work.
+    - Shared Worker: can be shared by multiple scripts (different windows/tabs) from the same origin.
+    - Service Worker: runs in the background, acts as network proxy/cache (offline support), not for arbitrary CPU work.
+    - Worklets (Audio, Paint): lightweight execution contexts for specific pipelines.
+
+- Communication patterns:
+    - `postMessage()` uses the structured clone algorithm (objects are copied). Some objects (ArrayBuffer) can be transferred to avoid copying.
+    - Transferable objects: pass an `ArrayBuffer` as a transfer to move ownership to the worker (zero-copy).
+
+- Shared memory with `SharedArrayBuffer` + `Atomics`:
+    - `SharedArrayBuffer` allows multiple agents (main thread + workers) to access the same memory.
+    - `Atomics` provides primitive operations: `Atomics.load`, `Atomics.store`, `Atomics.add`, `Atomics.compareExchange`, and synchronization helpers like `Atomics.wait` / `Atomics.notify`.
+    - Security: enabling `SharedArrayBuffer` requires proper cross-origin isolation (COOP/COEP headers):
+        - `Cross-Origin-Opener-Policy: same-origin`
+        - `Cross-Origin-Embedder-Policy: require-corp`
+
+- Example: using a worker with a transferable ArrayBuffer (main thread):
+```
+// main.js
+const buffer = new ArrayBuffer(1024 * 1024);
+const worker = new Worker('worker.js');
+worker.postMessage(buffer, [buffer]); // transfers ownership — buffer is neutered on main thread
+```
+
+// worker.js
+```
+onmessage = (e) => {
+    const buf = e.data; // received as the worker's ownership
+    // operate on the buffer
+    postMessage({ done: true });
+};
+```
+
+- Example: SharedArrayBuffer + Atomics (simple wait/notify):
+```
+// main.js
+const sab = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+const ia = new Int32Array(sab);
+ia[0] = 0;
+worker.postMessage(sab);
+// later
+ia[0] = 1;
+Atomics.notify(ia, 0, 1);
+
+// worker.js
+onmessage = (e) => {
+    const ia = new Int32Array(e.data);
+    Atomics.wait(ia, 0, 0); // blocks until main notifies and value changes
+    const v = Atomics.load(ia, 0);
+    postMessage({ value: v });
+};
+```
+
+- Caveats and best practices:
+    - Workers cannot access DOM APIs directly.
+    - Use transferables for large binary data for performance.
+    - Shared memory requires cross-origin isolation and careful synchronization (Atomics) to avoid race conditions.
+
+[Back to question list](#question-list)
+
+<a id="q26"></a>
+
+### 26. Design patterns and architecture for large JS apps (pub/sub, observer)
+
+- Pattern choices and when to use them:
+    - Pub/Sub (event bus): decouples publishers and subscribers; useful when many independent modules need to react to events without direct references.
+    - Observer: more tightly-coupled list of observers on a subject; useful when subjects manage their own observers.
+    - Mediator: centralizes complex communications between related components to avoid many-to-many dependencies.
+    - Flux/Redux: single source of truth, unidirectional data flow; great for predictable state management in complex UIs.
+
+- Architecture considerations for large apps:
+    - Single source of truth vs local component state — balance global vs local state carefully.
+    - Normalize state shape (avoid deeply nested structures), use selectors to derive data.
+    - Split domain boundaries, encapsulate side effects (sagas, thunks, effects), and prefer small pure reducers.
+    - Code-splitting, lazy loading, and feature-based modules to keep initial bundle size small.
+    - Consider micro-frontends for very large teams or independently deployable UI modules.
+
+- Best practices:
+    - Keep state immutable for easier reasoning and time-travel debugging.
+    - Co-locate state with the components that own it when possible.
+    - Write small, focused modules with clear public APIs and tests.
+    - Use dependency injection to make components testable and decoupled.
+
+- Examples:
+
+Observer pattern:
+```
+class Subject {
+    constructor(){ this.observers = new Set(); }
+    subscribe(fn){ this.observers.add(fn); }
+    unsubscribe(fn){ this.observers.delete(fn); }
+    notify(data){ this.observers.forEach(fn => fn(data)); }
+}
+
+const subject = new Subject();
+const logger = d => console.log('log', d);
+subject.subscribe(logger);
+subject.notify({msg:'hello'});
+```
+
+Simple Redux-like reducer example:
+```
+function todosReducer(state = [], action) {
+    switch(action.type) {
+        case 'ADD': return [...state, action.payload];
+        case 'REMOVE': return state.filter((t, i) => i !== action.payload.index);
+        default: return state;
+    }
+}
+```
+
+[Back to question list](#question-list)
+
+<a id="q27"></a>
+
+### 27. What is sparse array and how in built methods behave?
+
+- Sparse arrays and array methods
+    ```
+    const sparseArray = [1, , 3, 4]; // array with empty items(holes)
+    console.log(sparseArray); // Output: [ 1, <1 empty item>, 3, 4 ]
+    console.log(sparseArray.length); // Output: 4
+    
+    ```
+
+    - .map preservers holes in the array, so if we have a hole in the original array,
+    it will be a hole in the mapped array as well. 
+    
+    - .filter, on the other hand, does not preserve holes. If an element is filtered out, 
+    it will be removed from the resulting array, and the length of the resulting array 
+    will be less than the original array if any elements are filtered out. 
+    
+    - .reduce also does not preserve holes. If an element is a hole, it will be skipped 
+    during the reduction process, and it will not affect the final result of the reduction. 
+    
+    - .forEach also does not preserve holes. If an element is a hole, it will be skipped 
+    during the iteration process, and the callback function will not be called for that index.
+    
+    - .find also does not preserve holes. If an element is a hole, it will be skipped during the
+    search process, and it will not be considered as a valid element when looking for a match.
+    
+[Back to question list](#question-list)
+
+<a id="q28"></a>
+
+### 28. What is the shortest program in JS?
 
 - The shortest program in JS is an empty js file. When an empty js file is executed, a global execution context is created, and the global object is created. The 'this' keyword in the global execution context refers to the global object. The global object contains all the global variables and functions, and it is accessible from anywhere in the code.
 
