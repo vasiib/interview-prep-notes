@@ -19,6 +19,13 @@ React Js
 13. [How does React Fiber work?](#q13)
 14. [How does Concurrent Rendering improve performance?](#q14)
 15. [What is Automatic Batching?](#q15)
+16. [Explain Suspense and its use cases.](#q16)
+17. [What are React Server Components?](#q17)
+18. [How would you architect a large React application?](#q18) 
+19. [Explain useMemo and useCallback.](#q19)
+20. [When should you use useRef?](#q20)
+21. [Explain useReducer.](#q21)
+
 
 ---
 
@@ -1138,3 +1145,921 @@ function handleClick() {
 | **Promises / Async Callbacks** | Not batched (N re-renders) | **Batched (1 re-render)** |
 | **`setTimeout` / `setInterval`** | Not batched (N re-renders) | **Batched (1 re-render)** |
 | **Native DOM Event Listeners** | Not batched (N re-renders) | **Batched (1 re-render)** |
+
+[Back to question list](#question-list)
+
+<a id="q16"></a>
+
+### 16. Explain Suspense and its use cases.
+
+Suspense is a React feature that lets components "wait" for something — typically async data or code — before rendering, while React shows a fallback UI in the meantime. It's a declarative way to handle loading states, instead of manually tracking `isLoading` flags everywhere.
+ 
+## The Basic Idea
+ 
+You wrap part of your component tree in a `<Suspense>` boundary with a `fallback` prop. If any component inside that boundary isn't ready to render yet, React shows the fallback instead — and swaps in the real content once it's ready.
+ 
+```jsx
+import { Suspense } from 'react';
+ 
+function ProfilePage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <ProfileDetails />
+    </Suspense>
+  );
+}
+```
+ 
+If `ProfileDetails` "suspends" (signals it's not ready), React renders `<Spinner />` instead, without you writing any conditional loading logic inside `ProfileDetails` itself.
+ 
+## How "Suspending" Actually Works
+ 
+A component suspends by **throwing a Promise** during render (conceptually — the mechanics are mostly hidden behind APIs like `use()`, or handled by libraries/frameworks). React catches that thrown promise, looks up the nearest parent `<Suspense>` boundary, and shows its fallback. Once the promise resolves, React retries rendering the component.
+ 
+You don't write the `throw` yourself in normal usage — it's built into things like:
+- The `use()` hook (React 19+), which lets you read a promise or context directly during render.
+- Data-fetching libraries designed to integrate with Suspense (React Query, Relay, SWR's Suspense mode).
+- Frameworks like Next.js, which use Suspense internally for server components and streaming.
+## Use Case 1: Data Fetching
+ 
+The most common use case — showing a fallback while data loads, without manual `isLoading` state:
+ 
+```jsx
+function ProfilePage({ userId }) {
+  return (
+    <Suspense fallback={<ProfileSkeleton />}>
+      <ProfileDetails userId={userId} />
+    </Suspense>
+  );
+}
+ 
+function ProfileDetails({ userId }) {
+  const user = use(fetchUser(userId)); // suspends until resolved
+  return <h1>{user.name}</h1>;
+}
+```
+ 
+Compare this to the manual `useEffect` + `useState` fetch pattern — Suspense removes the need to track loading/error state by hand inside every component that fetches data.
+ 
+## Use Case 2: Code Splitting / Lazy-Loaded Components
+ 
+Suspense pairs naturally with `React.lazy()`, which lets you split your JS bundle so a component's code is only downloaded when needed:
+ 
+```jsx
+import { lazy, Suspense } from 'react';
+ 
+const SettingsPanel = lazy(() => import('./SettingsPanel'));
+ 
+function App() {
+  return (
+    <Suspense fallback={<div>Loading settings...</div>}>
+      <SettingsPanel />
+    </Suspense>
+  );
+}
+```
+ 
+While the `SettingsPanel` chunk is being fetched over the network, React shows the fallback. This is one of the oldest and most stable Suspense use cases (supported since React 16.6), well before Suspense-for-data-fetching matured.
+ 
+## Use Case 3: Coordinating Multiple Loading States
+ 
+Suspense boundaries can be nested, letting you control granularity — show one big spinner for everything, or let different sections load independently:
+ 
+```jsx
+<Suspense fallback={<PageSkeleton />}>
+  <Header />
+  <Suspense fallback={<PostsSkeleton />}>
+    <Posts />
+  </Suspense>
+  <Suspense fallback={<SidebarSkeleton />}>
+    <Sidebar />
+  </Suspense>
+</Suspense>
+```
+ 
+`Posts` and `Sidebar` can load independently and show their own fallback, without blocking `Header` or each other. If you instead want everything to wait together, you use one boundary around all of them.
+ 
+## Use Case 4: Avoiding Fallback "Flicker" with Transitions
+ 
+Suspense pairs with `startTransition` / `useTransition` to avoid re-showing a fallback UI during subsequent updates (e.g., navigating between tabs that both suspend). Without a transition, switching to a new suspended view would revert the whole boundary back to the fallback, which feels jarring:
+ 
+```jsx
+function TabContainer() {
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('posts');
+ 
+  function selectTab(nextTab) {
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  }
+  // ...
+}
+```
+ 
+With the transition, React keeps showing the *old* tab's content (optionally dimmed via `isPending`) while the new tab's data loads in the background, instead of unmounting to the fallback immediately.
+ 
+## Use Case 5: Server Components & Streaming SSR
+ 
+In frameworks like Next.js (App Router), Suspense boundaries let the server **stream** HTML to the browser incrementally — the shell of the page can be sent immediately, with slower parts of the page (e.g., a data-heavy section) streamed in later as they become ready, each showing a fallback in the meantime. This significantly improves perceived load performance for server-rendered pages.
+ 
+## What Suspense Is *Not*
+ 
+- **Not an error handler** — Suspense only handles the "loading" state. Errors during suspended rendering are a separate concern, typically handled with an **Error Boundary** (a class component implementing `componentDidCatch` or `getDerivedStateFromError`), often placed alongside a Suspense boundary.
+- **Not a data-fetching library itself** — Suspense is a *mechanism* for coordinating fallback UI; it doesn't fetch data for you. You need a Suspense-compatible data source (the `use()` hook, or a library built for it) to actually trigger suspension.
+- **Not (fully) usable with arbitrary `useEffect`-based fetching** — Suspense works with fetching approaches designed to integrate with it. A component using a plain `useEffect` + `useState` fetch pattern won't automatically suspend; it manages its own loading state the traditional way.
+
+
+[Back to question list](#question-list)
+
+<a id="q17"></a>
+
+### 17. What are React Server Components?
+
+# React Server Components (RSC)
+ 
+React Server Components are a component type that renders **exclusively on the server**, never shipping their code to the browser. They're a fairly recent addition to React (stabilized around React 18/19, popularized through Next.js's App Router) and represent a fundamentally different model from the client-only rendering React started with.
+ 
+## The Problem They Solve
+ 
+Traditional React (including SSR — server-side rendering) works like this:
+1. Server renders HTML for the initial page.
+2. Browser downloads the **full JavaScript bundle** for every component, including ones that only ever display static content.
+3. React "hydrates" — re-runs component code on the client to attach event listeners and make the page interactive.
+This means even a component that just renders `<p>{blogPost.content}</p>` from a database ships its JS to the browser, increases bundle size, and gets re-executed during hydration — despite never needing interactivity or client-side state.
+ 
+RSCs let you mark components as **server-only**, so:
+- Their code **never** ships to the client bundle at all.
+- They can directly access server-side resources (databases, file systems, internal APIs) without an API layer.
+- Only the *rendered output* (not the component code) is sent to the browser.
+## Server Components vs. Client Components
+ 
+React now distinguishes two kinds of components:
+ 
+**Server Components (default)**
+```jsx
+// No directive needed — Server Component by default in RSC-enabled frameworks
+async function BlogPost({ id }) {
+  const post = await db.posts.findById(id); // direct DB access!
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+- Can be `async` and `await` data directly in the component body — no `useEffect`, no `use()` needed.
+- Can access server-only resources (databases, secrets, file systems).
+- Zero JS sent to the browser for this component's logic.
+- **Cannot** use hooks like `useState`, `useEffect`, or browser-only APIs — there's no client-side lifecycle to hook into.
+- **Cannot** attach event handlers like `onClick` — there's no client-side runtime to handle the event.
+**Client Components (explicit opt-in)**
+```jsx
+'use client';
+ 
+function LikeButton({ postId }) {
+  const [liked, setLiked] = useState(false);
+  return (
+    <button onClick={() => setLiked(!liked)}>
+      {liked ? '❤️ Liked' : '🤍 Like'}
+    </button>
+  );
+}
+```
+- Marked with the `'use client'` directive at the top of the file.
+- Behaves like "classic" React — supports hooks, state, effects, event handlers.
+- Its code *does* ship to the browser, since it needs to run there for interactivity.
+## Composing Server and Client Components
+ 
+The key pattern: Server Components can render Client Components, and pass them data as props (server-rendered, then serialized). But Client Components **cannot** import Server Components directly — you compose them the other way, by passing a Server Component as a `children` prop into a Client Component:
+ 
+```jsx
+// Server Component
+async function BlogPost({ id }) {
+  const post = await db.posts.findById(id);
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+      <LikeButton postId={id} /> {/* Client Component, rendered from server */}
+    </article>
+  );
+}
+```
+ 
+This lets you keep most of your tree as lightweight, zero-JS Server Components, with small, targeted "islands" of interactivity as Client Components — rather than the older model where the entire tree ships JS by default.
+ 
+## How Rendering Actually Works
+ 
+1. The server renders Server Components to a special serialized format (not plain HTML — a tree describing components, their props, and where Client Components are embedded).
+2. This gets converted to HTML for the initial page load (similar to traditional SSR).
+3. The browser also receives the serialized RSC payload, which React uses to "attach" interactivity to the Client Component islands during hydration — without needing to re-run the Server Component logic on the client at all.
+4. When a Server Component needs to re-render (e.g., after a mutation, or client-side navigation to another page that uses it), the server can send an updated RSC payload, and React patches the DOM — this is part of what powers frameworks' fast client-side navigation without full-page reloads.
+## Use Cases
+ 
+**Data-heavy pages** — dashboards, blogs, product listings, anything that primarily displays server-fetched data benefits from Server Components doing the fetching directly, with no client-side loading state or API route needed.
+ 
+**Reducing bundle size** — large dependencies used only for server-side logic (e.g., a markdown parser, a PDF generator, a heavy formatting library) never ship to the client if only used inside a Server Component.
+ 
+**Direct backend access** — querying a database or reading a file system directly inside a component, without building a separate REST/GraphQL API layer just to expose that data to the client.
+ 
+**Secrets and sensitive logic** — API keys, internal business logic, or anything that shouldn't be exposed in client-side JS can live safely in a Server Component, since its code never reaches the browser.
+ 
+**Streaming with Suspense** — Server Components pair naturally with Suspense to stream in slower parts of a page incrementally, since the server can send fast-resolving components first and stream in slower ones later.
+ 
+## Important Distinctions
+ 
+**RSC ≠ SSR**
+Traditional SSR renders the *entire* app to HTML on the server, but still ships all the component JS to the client for hydration. RSC is a different axis: it's about which components *never* need to exist on the client at all, regardless of whether SSR is also happening. You can combine them — and frameworks like Next.js do — but they solve different problems.
+ 
+**RSC is a framework feature, not a "turn it on" React setting**
+React itself defines the RSC conventions and rendering model, but you need a framework (Next.js App Router being the most common) or a custom bundler setup to actually use Server Components — plain client-side React (e.g., a Vite SPA) doesn't have a server runtime to render them on.
+ 
+## Trade-offs and Constraints
+ 
+- **No interactivity or hooks in Server Components** — any component needing `useState`, event handlers, `useEffect`, browser APIs, or React Context must be a Client Component.
+- **Serialization boundaries** — props passed from a Server Component to a Client Component must be serializable (no functions, class instances, or non-plain objects), since they cross the server-to-client boundary.
+- **Mental model shift** — deciding what should be a Server vs. Client Component, and structuring the tree so interactivity is isolated to small leaf components, is a new architectural skill that takes some adjustment from "everything is a client component" thinking.
+- **Ecosystem maturity** — many third-party libraries assume a client-only environment and need explicit `'use client'` boundaries or Server Component-compatible alternatives.
+
+
+[Back to question list](#question-list)
+
+<a id="q18"></a>
+
+### 18. How would you architect a large React application?
+
+# Architecting a Large React Application
+ 
+There's no single "correct" architecture, but there are well-established patterns that scale well as an app grows in size, team, and complexity. Here's how to think through it.
+ 
+## 1. Folder Structure: Feature-Based, Not Type-Based
+ 
+**Avoid** grouping by file type at scale:
+```
+src/
+  components/
+  hooks/
+  utils/
+  pages/
+```
+This looks organized early on, but as the app grows, related code for one feature ends up scattered across five folders, and unrelated features get tangled together in shared folders.
+ 
+**Prefer** grouping by feature/domain:
+```
+src/
+  features/
+    auth/
+      components/
+      hooks/
+      api.ts
+      types.ts
+    checkout/
+      components/
+      hooks/
+      api.ts
+      types.ts
+  shared/
+    components/   # truly generic, reused UI (Button, Modal, Input)
+    hooks/        # generic hooks (useDebounce, useLocalStorage)
+    utils/
+  app/
+    routes.tsx
+    providers.tsx
+```
+Each feature folder is close to self-contained — easier to understand, test, and even delete cleanly when a feature is deprecated. The `shared/` folder stays intentionally small and only holds things genuinely used across multiple features.
+ 
+## 2. State Management: Match the Tool to the State's Scope
+ 
+A common mistake is reaching for one global state solution for everything. Large apps benefit from separating state by *where it lives* and *how it behaves*:
+ 
+| State type | Example | Typical tool |
+|---|---|---|
+| **Local UI state** | Modal open/closed, form input | `useState` / `useReducer` |
+| **Server/remote state** | API data, caching, refetching | React Query / SWR / RTK Query |
+| **Global client state** | Theme, auth session, UI preferences | Context, Zustand, Redux (sparingly) |
+| **URL state** | Filters, pagination, selected tab | URL search params / router state |
+| **Form state** | Multi-field forms, validation | React Hook Form / Formik |
+ 
+The single biggest architectural win in most large React codebases is treating **server state as fundamentally different from client state** — using a library like React Query instead of stuffing fetched data into Redux/Context, since it already handles caching, refetching, and staleness far better than hand-rolled solutions.
+ 
+## 3. Component Layering
+ 
+A useful mental model is separating components into layers by responsibility:
+ 
+- **UI primitives** — pure presentation, no business logic (`Button`, `Card`, `Input`). Highly reusable, easy to test in isolation, often documented in something like Storybook.
+- **Feature components** — compose primitives with business logic and data (`CheckoutForm`, `ProductCard`). Live inside their feature folder.
+- **Page/route components** — compose feature components into a full screen, handle route-level data loading. Thin by design — they orchestrate, they don't contain deep logic themselves.
+This keeps logic near where it's used, but presentation reusable and decoupled from business rules.
+ 
+## 4. Routing and Code Splitting
+ 
+For large apps, lazy-load routes so users only download the JS for the page they're viewing:
+ 
+```jsx
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard'));
+const Settings = lazy(() => import('./features/settings/Settings'));
+ 
+<Suspense fallback={<PageSkeleton />}>
+  <Routes>
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/settings" element={<Settings />} />
+  </Routes>
+</Suspense>
+```
+This ties directly to `React.lazy` + Suspense — one of the most impactful, low-effort performance wins for large apps, since it keeps the initial bundle small.
+ 
+## 5. Data Fetching Strategy
+ 
+Decide this early, since it affects almost every feature:
+- **Client-side fetching** (React Query, SWR) for SPAs.
+- **Server Components + framework data loading** (Next.js App Router, Remix loaders) if using a full-stack React framework — lets you fetch data server-side with less client JS.
+- Standardize on **one** approach per app. Mixing multiple fetching patterns (some `useEffect` fetches, some React Query, some Redux thunks) is a common source of large-app pain — inconsistent caching, duplicate requests, and hard-to-trace bugs.
+## 6. Design System / Shared UI Layer
+ 
+At scale, a consistent, documented set of UI primitives pays off enormously:
+- Centralize design tokens (colors, spacing, typography) rather than hardcoding values in components.
+- Build (or adopt) a component library — internal, or based on something like Radix/shadcn — so teams aren't reinventing buttons and modals per feature.
+- Document components with something like Storybook, so designers and engineers have a shared reference.
+## 7. Type Safety
+ 
+For any app beyond a small size, **TypeScript is close to non-negotiable** at this point — it catches a large class of bugs (prop mismatches, undefined data shapes, incorrect API responses) before runtime, and makes large-scale refactors dramatically safer since the compiler flags every place a change breaks something.
+ 
+## 8. Testing Strategy
+ 
+A layered approach tends to work best:
+- **Unit tests** for pure logic (utils, reducers, hooks) — fast, isolated.
+- **Component tests** (React Testing Library) for UI behavior — "does clicking this button show that text," not implementation details.
+- **Integration/E2E tests** (Playwright, Cypress) for critical user flows (checkout, login) — fewer of these, since they're slower and more brittle, but they catch issues unit tests can't.
+## 9. Performance Practices Baked into Architecture
+ 
+- **Code splitting** by route (and sometimes by heavy feature) as above.
+- **Memoization** (`useMemo`, `useCallback`, `React.memo`) applied deliberately where profiling shows a real cost — not sprinkled everywhere, since overusing memoization adds complexity without guaranteed benefit.
+- **Virtualization** (e.g., `react-window`) for long lists, so the DOM doesn't hold thousands of off-screen nodes.
+- Regular bundle analysis (e.g., `source-map-explorer`, Next.js's built-in analyzer) to catch bloat before it accumulates.
+## 10. Conventions That Prevent Chaos at Scale
+ 
+- **Linting/formatting enforced in CI** (ESLint, Prettier) — non-negotiable at team scale, removes bikeshedding.
+- **A clear "where does this go" decision tree** documented for the team (e.g., "is this shared across 2+ features? → `shared/`. Otherwise → the feature folder").
+- **Barrel exports used sparingly** — `index.ts` re-exports are convenient but can create circular dependency issues and slow down builds if overused across a huge codebase.
+- **API layer abstraction** — a thin, consistent wrapper around fetch/axios calls (error handling, auth headers, base URLs) rather than scattering raw fetch calls through components.
+## Putting It Together — A Realistic Large-App Shape
+ 
+```
+src/
+  app/               # app shell: routing, providers, layout
+  features/          # self-contained feature modules
+    auth/
+    dashboard/
+    billing/
+  shared/
+    ui/              # design system primitives
+    hooks/
+    utils/
+    api/             # base API client, interceptors
+  types/             # shared global types
+```
+ 
+Paired with: TypeScript, React Query for server state, a lightweight state library (Zustand/Context) for global client state, route-based code splitting, and a documented component library.
+
+
+[Back to question list](#question-list)
+
+<a id="q19"></a>
+
+### 19. Explain useMemo and useCallback.
+
+# `useMemo` and `useCallback`
+ 
+Both are React Hooks for **memoization** — caching a computed value or function reference across renders so it isn't recreated unnecessarily. They exist purely for performance optimization; they don't change what your component does, only how often work gets redone.
+ 
+## The Underlying Problem
+ 
+By default, every time a component re-renders, **everything inside its function body re-runs** — including expensive calculations and function definitions. Most of the time this is fine, since re-running simple code is cheap. But two situations make this costly:
+ 
+1. An expensive calculation runs on every render, even when its inputs haven't changed.
+2. A new function (or object) is created on every render, which breaks reference equality — causing child components wrapped in `React.memo`, or effects depending on that function, to re-render/re-run unnecessarily.
+## `useMemo` — Memoize a Computed Value
+ 
+```jsx
+const memoizedValue = useMemo(() => computeExpensiveValue(a, b), [a, b]);
+```
+ 
+`useMemo` re-runs the calculation only when a dependency in the array changes. On re-renders where `a` and `b` are the same, React returns the cached value from last time instead of recalculating.
+ 
+**Example:**
+ 
+```jsx
+function ProductList({ products, filter }) {
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => p.category === filter);
+  }, [products, filter]);
+ 
+  return (
+    <ul>
+      {filteredProducts.map(p => <li key={p.id}>{p.name}</li>)}
+    </ul>
+  );
+}
+```
+ 
+Without `useMemo`, `products.filter(...)` would re-run on *every* render of `ProductList` — even if triggered by something unrelated, like a parent re-rendering due to unrelated state. With `useMemo`, the filtering only re-runs when `products` or `filter` actually change.
+ 
+## `useCallback` — Memoize a Function Reference
+ 
+```jsx
+const memoizedFn = useCallback(() => {
+  doSomething(a, b);
+}, [a, b]);
+```
+ 
+`useCallback` is really just `useMemo` specialized for functions — it returns the *same function reference* across renders as long as dependencies haven't changed, instead of creating a brand-new function object every render.
+ 
+**Example:**
+ 
+```jsx
+function ParentComponent() {
+  const [count, setCount] = useState(0);
+  const [text, setText] = useState('');
+ 
+  const handleClick = useCallback(() => {
+    console.log('Clicked!', count);
+  }, [count]);
+ 
+  return (
+    <div>
+      <input value={text} onChange={e => setText(e.target.value)} />
+      <ExpensiveChild onClick={handleClick} />
+    </div>
+  );
+}
+ 
+const ExpensiveChild = React.memo(({ onClick }) => {
+  console.log('ExpensiveChild rendered');
+  return <button onClick={onClick}>Click me</button>;
+});
+```
+ 
+Without `useCallback`, `handleClick` would be a new function on every render of `ParentComponent` — including when only `text` changes. Since `ExpensiveChild` is wrapped in `React.memo` (which skips re-rendering if props are reference-equal to last time), a new `onClick` function every render would defeat that optimization, causing `ExpensiveChild` to re-render anyway. `useCallback` keeps the same reference as long as `count` hasn't changed, so `React.memo` can actually do its job.
+ 
+## The Relationship Between the Two
+ 
+`useCallback(fn, deps)` is functionally equivalent to `useMemo(() => fn, deps)` — it's a convenience wrapper for the extremely common case of memoizing a function specifically.
+ 
+```jsx
+// These are equivalent:
+const memoizedFn = useCallback(() => doSomething(a), [a]);
+const memoizedFn = useMemo(() => () => doSomething(a), [a]);
+```
+ 
+## When They Actually Help
+ 
+Both hooks only pay off in specific situations — they are **not** something to reflexively wrap around every value/function:
+ 
+**`useMemo` is worth it when:**
+- The computation is genuinely expensive (heavy loops, large array transformations, complex derived data) — not simple arithmetic or string concatenation.
+- The value is passed as a dependency to another hook (`useEffect`, another `useMemo`) where reference stability matters, avoiding unnecessary re-runs of that other hook.
+**`useCallback` is worth it when:**
+- The function is passed to a child wrapped in `React.memo`, and you want that memoization to actually work.
+- The function is a dependency of another hook (like `useEffect`) — without `useCallback`, that effect would re-run every render, since a new function reference each time makes React think the dependency "changed."
+## When They *Don't* Help (and Can Even Hurt)
+ 
+Memoization itself isn't free — React has to store the cached value, compare dependencies on every render, and this comparison work isn't zero-cost. Overusing `useMemo`/`useCallback` where they're not needed adds code complexity and small runtime overhead without a meaningful benefit:
+ 
+```jsx
+// Unnecessary — this string concatenation is trivially cheap
+const greeting = useMemo(() => `Hello, ${name}!`, [name]);
+ 
+// Better — just compute it directly
+const greeting = `Hello, ${name}!`;
+```
+ 
+```jsx
+// Unnecessary — if this function isn't passed to a memoized child
+// or used as a dependency elsewhere, wrapping it does nothing useful
+const handleClick = useCallback(() => {
+  console.log('clicked');
+}, []);
+```
+ 
+The general guidance from the React team: **don't reach for these hooks by default** — write the simple version first, and only add memoization once profiling (e.g., React DevTools Profiler) shows a real, measurable performance problem caused by unnecessary recalculation or re-renders.
+ 
+## Common Pitfall: Missing or Incorrect Dependencies
+ 
+Just like `useEffect`, both hooks rely on an accurate dependency array. Omitting a dependency can cause the memoized value/function to use **stale data** from an earlier render:
+ 
+```jsx
+// Bug: always uses the `count` value from when the component first rendered
+const handleClick = useCallback(() => {
+  console.log(count);
+}, []); // missing `count` in deps
+```
+ 
+The `exhaustive-deps` ESLint rule (from `eslint-plugin-react-hooks`) catches this for both `useEffect` and `useMemo`/`useCallback`, and should generally be trusted rather than suppressed.
+ 
+## `useMemo`/`useCallback` vs. `React.memo`
+ 
+These are complementary, not interchangeable:
+- **`React.memo`** — wraps a *component*, and skips re-rendering it if its props are reference-equal to the last render.
+- **`useMemo`/`useCallback`** — used *inside* a component to keep the values/functions passed as props stable, so `React.memo` on the receiving component can actually detect "nothing changed" and skip re-rendering.
+They're typically used together: `React.memo` on the child, `useCallback`/`useMemo` in the parent for whatever gets passed down as props.
+ 
+## In Short
+ 
+`useMemo` caches a computed *value*, and `useCallback` caches a *function reference* — both skip unnecessary recomputation by reusing the cached result unless their dependencies change. They're valuable for expensive calculations or for preserving reference stability so other optimizations (like `React.memo` or effect dependencies) work correctly, but they add overhead of their own and shouldn't be applied by default — only when there's a real performance need.
+ 
+[Back to question list](#question-list)
+
+<a id="q20"></a>
+
+### 20. When should you use useRef?
+
+`useRef` is a React Hook that gives you a mutable container — a "box" — that persists across renders **without triggering a re-render when it changes**. It's the tool for anything that needs to be remembered between renders but isn't part of what the UI displays.
+ 
+## Basic Syntax
+ 
+```jsx
+const myRef = useRef(initialValue);
+```
+ 
+Returns an object shaped like `{ current: initialValue }`. You read and write via `myRef.current`, and that object reference stays stable across the component's entire lifetime.
+ 
+## `useRef` vs. `useState` — The Key Distinction
+ 
+| | `useState` | `useRef` |
+|---|---|---|
+| Triggers re-render on change? | Yes | No |
+| Value persists across renders? | Yes | Yes |
+| Read/write syntax | `state`, `setState(x)` | `ref.current`, `ref.current = x` |
+| Use for | Data that affects what's rendered | Data that doesn't affect what's rendered |
+ 
+This is the core rule of thumb: **if changing the value should update the UI, use `useState`. If it shouldn't, use `useRef`.**
+ 
+## Use Case 1: Accessing DOM Elements
+ 
+The most common use case — getting a direct reference to a DOM node, for things React doesn't have a declarative API for:
+ 
+```jsx
+function TextInput() {
+  const inputRef = useRef(null);
+ 
+  function focusInput() {
+    inputRef.current.focus();
+  }
+ 
+  return (
+    <>
+      <input ref={inputRef} type="text" />
+      <button onClick={focusInput}>Focus the input</button>
+    </>
+  );
+}
+```
+ 
+This connects directly to uncontrolled components — reading a DOM input's value via `ref.current.value` is another example of this same pattern. Other common DOM use cases: measuring an element's size (`getBoundingClientRect()`), scrolling to an element, managing focus, or integrating with non-React libraries that need a real DOM node (charting libraries, video players).
+ 
+## Use Case 2: Storing a Mutable Value That Doesn't Affect Rendering
+ 
+Anything you need to "remember" between renders, where a change to it shouldn't cause a re-render:
+ 
+```jsx
+function Timer() {
+  const intervalRef = useRef(null);
+  const [seconds, setSeconds] = useState(0);
+ 
+  function start() {
+    intervalRef.current = setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+  }
+ 
+  function stop() {
+    clearInterval(intervalRef.current);
+  }
+ 
+  return (
+    <div>
+      <p>{seconds}s</p>
+      <button onClick={start}>Start</button>
+      <button onClick={stop}>Stop</button>
+    </div>
+  );
+}
+```
+ 
+Here, `intervalRef` holds the interval ID — necessary to clear it later, but irrelevant to what's rendered. Storing it in `useState` instead would cause an unnecessary re-render every time it's set.
+ 
+## Use Case 3: Tracking Previous Values
+ 
+A common pattern — remembering a value from the *previous* render to compare against the current one:
+ 
+```jsx
+function usePrevious(value) {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
+ 
+function Counter({ count }) {
+  const prevCount = usePrevious(count);
+  return <p>Now: {count}, before: {prevCount}</p>;
+}
+```
+ 
+The ref update happens in `useEffect` — which runs *after* render — so `ref.current` still holds the old value during the current render, and only gets updated to the new value afterward, ready for the *next* render's comparison.
+ 
+## Use Case 4: Avoiding Stale Closures in Callbacks/Effects
+ 
+Refs are useful when you need a callback (e.g., inside `useEffect`) to always see the *latest* value of something, without adding it as a dependency and re-running the effect:
+ 
+```jsx
+function ChatRoom({ roomId }) {
+  const latestRoomId = useRef(roomId);
+ 
+  useEffect(() => {
+    latestRoomId.current = roomId;
+  }, [roomId]);
+ 
+  useEffect(() => {
+    function handleMessage() {
+      console.log('Message received in room:', latestRoomId.current); // always current
+    }
+    connection.on('message', handleMessage);
+    return () => connection.off('message', handleMessage);
+  }, []); // intentionally no roomId dependency — connection is set up once
+}
+```
+ 
+This is a more advanced pattern and should be used carefully — it's often a sign the effect's dependencies need rethinking, but it's a legitimate escape hatch when you deliberately want a callback that doesn't need to be recreated but still needs fresh data.
+ 
+## Use Case 5: Persisting Values Across Renders Without Re-initializing
+ 
+Similar to lazy `useState` initialization, but for values that never need to trigger a render — like caching an expensive object you only want created once:
+ 
+```jsx
+function Canvas() {
+  const contextRef = useRef(null);
+  const canvasRef = useRef(null);
+ 
+  useEffect(() => {
+    contextRef.current = canvasRef.current.getContext('2d');
+  }, []);
+  // contextRef.current persists across renders, but changing it never re-renders
+}
+```
+ 
+## When *Not* to Use `useRef`
+ 
+**Don't use it as a workaround to avoid re-renders for data that should actually be in state.** If the value is genuinely something the UI needs to reflect, `useRef` will silently fail to update the screen, since mutating `.current` doesn't trigger React to re-render:
+ 
+```jsx
+// Bug: the UI will never update, because mutating a ref doesn't cause a re-render
+function Counter() {
+  const countRef = useRef(0);
+  return (
+    <button onClick={() => { countRef.current += 1; }}>
+      {countRef.current} {/* stays frozen visually */}
+    </button>
+  );
+}
+```
+ 
+**Don't read or write `ref.current` during rendering** (outside of event handlers or effects) — this breaks React's rendering model, since refs are explicitly meant to be a mutable escape hatch outside of the render/re-render cycle. Reading it during render can give you inconsistent results, especially with concurrent rendering features.
+ 
+## `useRef` vs. `useState` — A Quick Test
+ 
+Ask: **"If this value changes, does anything on screen need to look different?"**
+- Yes → `useState`
+- No → `useRef`
+## In Short
+ 
+Use `useRef` when you need a mutable value that survives across renders but shouldn't cause a re-render when it changes — most commonly for direct DOM access (focus, measurements, integrating non-React code), but also for storing timers/IDs, tracking previous values, or holding the "latest" version of a value for callbacks without adding it to a dependency array. If updating the value should visibly change the UI, that's `useState`'s job instead.
+
+[Back to question list](#question-list)
+
+<a id="q21"></a>
+
+### 21. Explain useReducer.
+
+`useReducer` is a React Hook used for **managing complex state logic**.
+It's an alternative to `useState`, especially when:
+
+-   State has multiple related values.
+-   State transitions depend on the previous state.
+-   You have many state update functions and want to keep them
+    organized.
+
+## Syntax
+
+``` jsx
+const [state, dispatch] = useReducer(reducer, initialState);
+```
+
+-   **state** → The current state.
+-   **dispatch** → A function used to send actions.
+-   **reducer** → A function that determines how the state changes.
+-   **initialState** → The initial value of the state.
+
+## How It Works
+
+A reducer function takes the current state and an action, then returns a
+new state.
+
+``` jsx
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return { count: state.count + 1 };
+
+    case "decrement":
+      return { count: state.count - 1 };
+
+    case "reset":
+      return { count: 0 };
+
+    default:
+      return state;
+  }
+}
+```
+
+## Example: Counter
+
+``` jsx
+import { useReducer } from "react";
+
+const initialState = { count: 0 };
+
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return { count: state.count + 1 };
+
+    case "decrement":
+      return { count: state.count - 1 };
+
+    case "reset":
+      return initialState;
+
+    default:
+      return state;
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  return (
+    <div>
+      <h2>Count: {state.count}</h2>
+
+      <button onClick={() => dispatch({ type: "increment" })}>
+        +
+      </button>
+
+      <button onClick={() => dispatch({ type: "decrement" })}>
+        -
+      </button>
+
+      <button onClick={() => dispatch({ type: "reset" })}>
+        Reset
+      </button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+## Flow of `useReducer`
+
+``` text
+Button Click
+      │
+      ▼
+dispatch({ type: "increment" })
+      │
+      ▼
+Reducer(state, action)
+      │
+      ▼
+Returns New State
+      │
+      ▼
+React Re-renders Component
+```
+
+## Passing Data with Actions
+
+You can send extra data, commonly called a **payload**, in the action.
+
+``` jsx
+function reducer(state, action) {
+  switch (action.type) {
+    case "add":
+      return {
+        count: state.count + action.payload,
+      };
+
+    default:
+      return state;
+  }
+}
+```
+
+Dispatch:
+
+``` jsx
+dispatch({
+  type: "add",
+  payload: 5,
+});
+```
+
+Result:
+
+``` text
+count = count + 5
+```
+
+## `useState` vs `useReducer`
+
+  `useState`               `useReducer`
+  ------------------------ --------------------------------------------
+  Best for simple state    Best for complex state
+  Updates state directly   Updates state through actions
+  Easy to learn            Better for managing many state transitions
+  Less boilerplate         More structured and predictable
+
+## When to Use `useReducer`
+
+Use `useReducer` when:
+
+-   You have multiple related state values.
+-   State updates depend on previous state.
+-   You have many possible actions such as add, delete, update, and
+    reset.
+-   You want Redux-like state management within a component.
+
+Avoid it when:
+
+-   You only need a simple value like a boolean, string, or number.
+-   `useState` can express the state logic clearly and simply.
+
+## Real-World Example: Todo List
+
+``` jsx
+const initialState = [];
+
+function reducer(state, action) {
+  switch (action.type) {
+    case "ADD":
+      return [...state, action.payload];
+
+    case "DELETE":
+      return state.filter(todo => todo.id !== action.payload);
+
+    default:
+      return state;
+  }
+}
+```
+
+Usage:
+
+``` jsx
+const [todos, dispatch] = useReducer(reducer, []);
+
+dispatch({
+  type: "ADD",
+  payload: {
+    id: 1,
+    text: "Learn useReducer",
+  },
+});
+
+dispatch({
+  type: "DELETE",
+  payload: 1,
+});
+```
+
+Here, the reducer centralizes all todo-related state changes, making the
+code easier to maintain as the application grows.
+
+## Key Interview Points
+
+1.  `useReducer` is a React Hook for managing state with a reducer
+    function.
+2.  The reducer receives `(state, action)` and returns the next state.
+3.  `dispatch()` sends an action to the reducer.
+4.  Actions usually contain a `type` and optionally a `payload`.
+5.  Reducers should be **pure functions**.
+6.  Don't mutate the existing state directly; return a new state.
+7.  `useReducer` is particularly useful when state transitions are
+    complex or numerous.
+8.  `useReducer` can be combined with `useContext` to build a
+    lightweight global state-management solution.
