@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debouncing Example</title>
+    <link rel="stylesheet" href="pageInteraction.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <div class="modal-grid">
+        <section class="card">
+          <div class="header-row">
+            <div>
+              <h1>Debouncing and Throttling Example</h1>
+              <p>
+                This example demonstrates the use of debouncing and throttling in JavaScript.
+                The input field will trigger a debounced function, while the button will trigger a throttled function.
+              </p>
+            </div>
+            <button id="themeToggleButton" class="secondary">Dark theme</button>
+          </div>
+
+          <div class="controls">
+            <input
+              type="text"
+              id="search"
+              placeholder="Type to search..."
+            />
+            <button id="throttleButton">Click me</button>
+          </div>
+
+          <div class="output-grid">
+            <article class="output-card">
+              <h2>Debounce Output</h2>
+              <div id="debounceOutput" class="output-box">Type in the search field and pause to see the debounced result.</div>
+            </article>
+            <article class="output-card">
+              <h2>Throttle Output</h2>
+              <div id="throttleOutput" class="output-box">Click the button repeatedly. The action will only fire once every 2 seconds.</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="header-row">
+            <div>
+              <h1>Without Debouncing and Throttling Example</h1>
+              <p>
+                This example calls the expensive functions immediately on input and button click.
+                Results are displayed below without any debounce or throttle.
+              </p>
+            </div>
+          </div>
+
+          <div class="controls">
+            <input
+              type="text"
+              id="searchImmediate"
+              placeholder="Type to search..."
+            />
+            <button id="clickImmediate">Click Me</button>
+          </div>
+
+          <div class="output-grid">
+            <article class="output-card">
+              <h2>Search Output</h2>
+              <div id="searchImmediateOutput" class="output-box">Type in the search field to see immediate results.</div>
+            </article>
+            <article class="output-card">
+              <h2>Click Output</h2>
+              <div id="clickImmediateOutput" class="output-box">Click the button to execute the expensive function immediately.</div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script src="debounce.js"></script>
+    <script src="throttle.js"></script>
+    <script src="pageInteraction.js"></script>
+  </body>
+</html>

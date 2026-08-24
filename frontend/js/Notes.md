@@ -26,14 +26,18 @@ Javascript
 20. [How V8 garbage collection and memory management work?](#q20)
 21. [Module loading and circular dependencies (CJS vs ESM)](#q21)
 22. [Immutability patterns and structural sharing](#q22)
-23. [Performance profiling techniques and tools](#q23)
+23. [Scope and Scope Chain](#q23)
 24. [Security in browser JS: XSS, CSP and safe DOM updates](#q24)
 25. [Concurrency in the browser: Web Workers and SharedArrayBuffer](#q25)
-26. [Design patterns and architecture for large JS apps (pub/sub, observer)](#q26)
+26. [Block Scope and Shadowing in JS](#q26)
 27. [What is sparse array and how in built methods behave?](#q27)
-28. [](#q28)
-29. [](#q29)
-30. [](#q30)
+28. [Debouncing and Throttling](#q28)
+29. [Currying in JS](#q29)
+30. [Call, Apply and Bind](#q30)
+31. [](#q31)
+32. [](#q32)
+33. [](#q33)
+34. [](#q34)
 ---
 
 ## Answers
@@ -880,16 +884,38 @@ const next = produce(state, draft => { draft.items.push(3); });
 
 <a id="q23"></a>
 
-### 23. Performance profiling techniques and tools
+### 23. Scope and Scope Chain
 
-- Tools: Chrome DevTools Performance & Memory tabs, Lighthouse, `node --inspect`, `clinic`, `perf`.
-- Workflow: reproduce scenario → record CPU/profile and heap snapshots → find hot functions and retained objects → iterate fix → reprofile.
+- Scope: It is the set of rules that determines the accessibility of variables and functions in different parts of the code. There are two types of scope: global scope and local scope. 
+    - Global scope: Variables and functions declared in the global execution context are accessible from anywhere in the code. 
+    - Local scope: Variables and functions declared inside a function are only accessible within that function and its inner functions.
 
-Quick Node inspect example:
-```
-node --inspect-brk server.js
-// Open chrome://inspect and start a CPU profile
-```
+- Scope Chain: It is the chain of execution contexts that are created when a function is called. When a variable is accessed, JavaScript looks for it in the current execution context's variable environment. If it doesn't find it there, it looks in the outer execution context's variable environment(lexical environment), and so on, until it reaches the global execution context. This chain of execution contexts is called the scope chain.
+
+    - Lexical environment: Local memory along with the reference to the outer lexical environment.
+        - when a global execution context is created, it has a reference to the global lexical environment. When a function execution context is created, it has a reference to the outer lexical environment, which is the lexical environment of the function that called it. This allows functions to access variables and functions declared in their outer scopes.
+        ```
+        - example: 
+            function outer() {
+                var x = 10;
+                function inner() {
+                    console.log(x);
+                }
+                inner();
+            }
+            outer();
+        ```
+        
+        - In the above example, 
+            - Global Execution Context -> Has the Global Lexical Environment 
+                - Global
+            - outer() Execution Context -> Has the Lexical Environment of outer() and a     reference to the Global Lexical Environmen 
+                - Local
+                - Global
+            - inner() Execution Context -> Has the Lexical Environment of inner() and a reference to the Lexical Environment of outer()
+                - Local
+                - Closure(outer)
+                - Global
 
 [Back to question list](#question-list)
 
@@ -979,54 +1005,33 @@ onmessage = (e) => {
 
 <a id="q26"></a>
 
-### 26. Design patterns and architecture for large JS apps (pub/sub, observer)
+### 26. Block Scope and Shadowing in JS
 
-- Pattern choices and when to use them:
-    - Pub/Sub (event bus): decouples publishers and subscribers; useful when many independent modules need to react to events without direct references.
-    - Observer: more tightly-coupled list of observers on a subject; useful when subjects manage their own observers.
-    - Mediator: centralizes complex communications between related components to avoid many-to-many dependencies.
-    - Flux/Redux: single source of truth, unidirectional data flow; great for predictable state management in complex UIs.
+- What is Block?
+    - Block is a set of statements enclosed in curly braces {}. It is used to group statements together.
+    Ex: if (true) somestatement;
+    - If you have multiple statements, then to make them as a single statement you need to group them. For this purpose, we use block. Block is a set of statements enclosed in curly braces {}. It is used to group statements together.
+    Ex: if (true) { somestatement1; somestatement2; }
 
-- Architecture considerations for large apps:
-    - Single source of truth vs local component state — balance global vs local state carefully.
-    - Normalize state shape (avoid deeply nested structures), use selectors to derive data.
-    - Split domain boundaries, encapsulate side effects (sagas, thunks, effects), and prefer small pure reducers.
-    - Code-splitting, lazy loading, and feature-based modules to keep initial bundle size small.
-    - Consider micro-frontends for very large teams or independently deployable UI modules.
+- Block scope: It is the scope that is created by a block of code, which is defined by curly braces {}. Variables declared with let and const are block-scoped, which means they are only accessible within the block they are declared in.
 
-- Best practices:
-    - Keep state immutable for easier reasoning and time-travel debugging.
-    - Co-locate state with the components that own it when possible.
-    - Write small, focused modules with clear public APIs and tests.
-    - Use dependency injection to make components testable and decoupled.
-
-- Examples:
-
-Observer pattern:
-```
-class Subject {
-    constructor(){ this.observers = new Set(); }
-    subscribe(fn){ this.observers.add(fn); }
-    unsubscribe(fn){ this.observers.delete(fn); }
-    notify(data){ this.observers.forEach(fn => fn(data)); }
-}
-
-const subject = new Subject();
-const logger = d => console.log('log', d);
-subject.subscribe(logger);
-subject.notify({msg:'hello'});
-```
-
-Simple Redux-like reducer example:
-```
-function todosReducer(state = [], action) {
-    switch(action.type) {
-        case 'ADD': return [...state, action.payload];
-        case 'REMOVE': return state.filter((t, i) => i !== action.payload.index);
-        default: return state;
+- Shadowing: It is the process of declaring a variable with the same name as a variable in an outer scope. The inner variable "shadows" the outer variable, which means that the inner variable takes precedence over the outer variable within its scope. 
+    ```
+    - example:
+        var x = 1;
+        {   
+            let x = 2;
+            console.log(x); // 2
+        }
+        console.log(x); // 1
     }
-}
-```
+    ```
+    - Legal shadowing: you can shadow let with let, const with const, var with var, var with let, var with const, let with const, const with let. (because let and const are block scoped and var is function scoped)
+    
+    - Illegal shadowing: you cannot shadow let with var, const with var.
+
+        - let and const are block scoped, which means they are only accessible within the block they are declared in. Once the block is exited, the variable is no longer accessible.
+        - var is function scoped, which means it is accessible within the function it is declared in. Once the function is exited, the variable is no longer accessible. If var is declared outside of any function, it is accessible throughout the entire program.
 
 [Back to question list](#question-list)
 
@@ -1062,8 +1067,105 @@ function todosReducer(state = [], action) {
 
 <a id="q28"></a>
 
-### 28. What is the shortest program in JS?
+### 28. Debouncing and Throttling
 
-- The shortest program in JS is an empty js file. When an empty js file is executed, a global execution context is created, and the global object is created. The 'this' keyword in the global execution context refers to the global object. The global object contains all the global variables and functions, and it is accessible from anywhere in the code.
+- Debouncing: A technique to limit the rate at which a function is executed. It ensures that a function is only called after a certain amount of time has passed since the last time it was invoked. This is useful for scenarios like search input fields, where you want to wait until the user has stopped typing before making an API call.
+
+- Throttling: A technique to ensure that a function is only called at most once in a specified time period. This is useful for scenarios like button clicks, where you want to prevent multiple rapid clicks from triggering the same action multiple times.   
+
+- Difference between Debouncing and Throttling:
+    - Debouncing: We wait for a pause in the user's input before executing the function.
+    - Throttling: We limit the number of times a function can be called in a specified time period.
 
 [Back to question list](#question-list)
+
+<a id="q29"></a>
+
+### 29. Currying in JS
+
+- Currying is an advanced technique in js - to transform a function of arguments n, to n functions of one or less arguments.
+- By using this technique, we don not change the functionality of a function, we just change the way it is invoked
+- Currying can be done in 2 ways
+    - With bind method
+    - With closures
+
+    ```
+    // Bind method
+        // actual function
+        let multiply = function(x, y){
+            console.log(x*y);
+        }
+
+        // currying function - fixing first argument to 2
+        let mulCurryByTwo = multiply.bind(this, 2);
+
+        mulCurryByTwo(5); //  10 - 2 * 5
+    
+    // By Closure
+        let multiplyCls = function(x){
+            return function(y){
+                console.log(x*y);
+            }
+        }
+
+        multiplyCls(2)(5); // 10
+
+    ```
+
+[Back to question list](#question-list)
+
+<a id="q30"></a>
+
+### 30. Call, Apply and Bind
+
+- These 3 are predefined methods in javascript.
+    - `Call`: This method invokes a function by specifying the owner object.
+        - Predefined function that allows you to call a function with a given `this` value and arguments provided individually with coma separated values.
+        - Ex: originalFunc.call(thisArg, arg1, arg2, arg3)
+            ```
+            function originalFunc(age, city) {
+                console.log(`Name: ${this.name}, Age: ${age}, City: ${city}`);
+            }
+
+            const myThis = { name: "John" };
+            originalFunc.call(myThis, 30, "New York"); 
+            // Name: John, Age: 30, City: New York 
+            ```
+
+    - `Apply`: It is similar to call() method, the only difference is that 
+        - call() --> takes arguments individually with coma seperated whereas, 
+        - apply() --> takes the arguments as an array
+            - Ex: originalFunc.call(thisArg, [arg1, arg2, arg3])
+    
+    - `Bind`: Unlike call() and apply() this method `returns` a new function, where the value of `this` will be bound to the owner object which is provided as parameter. Once binded you can't undo it. Arguments are passed similar to call();
+        - Ex: originalFunc.bind(thisArg, arg1);
+    
+    - `Note`: Both call() and apply() return whatever the called function returns.
+                
+
+
+
+[Back to question list](#question-list)
+
+<a id="q29"></a>
+
+### 29. Dummy
+
+- Dummy
+[Back to question list](#question-list)
+
+<a id="q29"></a>
+
+### 29. Dummy
+
+- Dummy
+[Back to question list](#question-list)
+
+<a id="q29"></a>
+
+### 29. Dummy
+
+- Dummy
+[Back to question list](#question-list)
+
+
