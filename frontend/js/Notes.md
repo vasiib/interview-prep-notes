@@ -537,6 +537,17 @@ Javascript
 ### 10. What is event delegation?
 - Event delegation is a JavaScript pattern where instead of attaching event listeners to multiple child elements, you attach a single listener to their parent.
 - The parent uses the event’s bubbling phase to “delegate” handling to the correct child.
+- `Event Bubbling` and `Event Capturing`:
+    - When you click an element, it bubbles out from the current element to the top-parent (in below example ul). Starts executing the event listener functions from current --> top parent
+    - By default bubbling will applied.
+    - Event capturing is just opposite to the event bubbling
+        - When you click on a element it trickles down from top parent to the current element. Executes event listener functions from top parent --> current elem.
+    - Developer can control this by defining what he require with useCapture
+        ```
+        elem.addEventListener("click", callback-func, true);
+            // third argument defines - useCapture
+        ``` 
+    - Onclick of an elem, first it trickles down (if useCapture is true then it execute the callback function). Once it reaches the elem, then it bubbles out (if useCapture is not true, it will execute the callback function)
 
   ```
   <ul id="menu">
@@ -557,7 +568,7 @@ Javascript
   </script>
   ```
 
-  - How it works:
+  - How it works: 
     - You click on a `li`
     - The click event bubbles up to the `ul`
     - The `ul` listener checks event.target (the actual clicked element)
@@ -1141,17 +1152,29 @@ onmessage = (e) => {
         - Ex: originalFunc.bind(thisArg, arg1);
     
     - `Note`: Both call() and apply() return whatever the called function returns.
-                
-
-
-
+               
 [Back to question list](#question-list)
 
-<a id="q29"></a>
+<a id="q31"></a>
 
-### 29. Dummy
+### 31. Recursion
+- Recursion is a technique where a function calls itself to solve a problem by breaking it into smaller, similar subproblems until a base condition is met.
+    - A function invokes itself during execution.
+    - Works by dividing a problem into smaller subproblems.
+    - `Requires a base case to stop infinite calls.`
+    - Commonly used in problems like factorial, Fibonacci, and tree traversal.
+    - 
+    ```
+    function recursiveFunction(parameters) {
+        // Base case: stopping condition
+        if (baseCase) {
+            return baseCaseValue;
+        }
 
-- Dummy
+        // Recursive case: function calls itself
+        return recursiveFunction(modifiedParameters);
+    }
+    ```
 [Back to question list](#question-list)
 
 <a id="q29"></a>
