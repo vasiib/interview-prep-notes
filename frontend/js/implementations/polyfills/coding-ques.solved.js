@@ -4,8 +4,6 @@
 // 4. Remove duplicate elements from an array
 // 5. Find missing number from an array
 
-// Implementations and demos for the five coding questions
-
 // 1) Memoization helper
 // `memoize` returns a wrapped version of `fn` that caches results by arguments.
 // It works with functions that accept JSON-serializable arguments.
