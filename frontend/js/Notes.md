@@ -26,14 +26,23 @@ Javascript
 20. [How V8 garbage collection and memory management work?](#q20)
 21. [Module loading and circular dependencies (CJS vs ESM)](#q21)
 22. [Immutability patterns and structural sharing](#q22)
-23. [Performance profiling techniques and tools](#q23)
+23. [Scope and Scope Chain](#q23)
 24. [Security in browser JS: XSS, CSP and safe DOM updates](#q24)
 25. [Concurrency in the browser: Web Workers and SharedArrayBuffer](#q25)
-26. [Design patterns and architecture for large JS apps (pub/sub, observer)](#q26)
+26. [Block Scope and Shadowing in JS](#q26)
 27. [What is sparse array and how in built methods behave?](#q27)
-28. [](#q28)
-29. [](#q29)
-30. [](#q30)
+28. [Debouncing and Throttling](#q28)
+29. [Currying in JS](#q29)
+30. [Call, Apply and Bind](#q30)
+31. [Recursion](#q31)
+32. [What are `Set` and `Map`, and how do you use and iterate through them?](#q32)
+33. [What are `WeakSet` and `WeakMap`, and how do you use them?](#q33)
+34. [How are `Set`, `Map`, `WeakSet`, and `WeakMap` different?](#q34)
+35. [When should you use each collection?](#q35)
+36. [What are the commonly used JavaScript array methods?](#q36)
+37. [What are the commonly used JavaScript string methods?](#q37)
+38. [What loops are available in JavaScript and how are they different?](#q38)
+
 ---
 
 ## Answers
@@ -533,6 +542,17 @@ Javascript
 ### 10. What is event delegation?
 - Event delegation is a JavaScript pattern where instead of attaching event listeners to multiple child elements, you attach a single listener to their parent.
 - The parent uses the event’s bubbling phase to “delegate” handling to the correct child.
+- `Event Bubbling` and `Event Capturing`:
+    - When you click an element, it bubbles out from the current element to the top-parent (in below example ul). Starts executing the event listener functions from current --> top parent
+    - By default bubbling will applied.
+    - Event capturing is just opposite to the event bubbling
+        - When you click on a element it trickles down from top parent to the current element. Executes event listener functions from top parent --> current elem.
+    - Developer can control this by defining what he require with useCapture
+        ```
+        elem.addEventListener("click", callback-func, true);
+            // third argument defines - useCapture
+        ``` 
+    - Onclick of an elem, first it trickles down (if useCapture is true then it execute the callback function). Once it reaches the elem, then it bubbles out (if useCapture is not true, it will execute the callback function)
 
   ```
   <ul id="menu">
@@ -553,7 +573,7 @@ Javascript
   </script>
   ```
 
-  - How it works:
+  - How it works: 
     - You click on a `li`
     - The click event bubbles up to the `ul`
     - The `ul` listener checks event.target (the actual clicked element)
@@ -880,16 +900,38 @@ const next = produce(state, draft => { draft.items.push(3); });
 
 <a id="q23"></a>
 
-### 23. Performance profiling techniques and tools
+### 23. Scope and Scope Chain
 
-- Tools: Chrome DevTools Performance & Memory tabs, Lighthouse, `node --inspect`, `clinic`, `perf`.
-- Workflow: reproduce scenario → record CPU/profile and heap snapshots → find hot functions and retained objects → iterate fix → reprofile.
+- Scope: It is the set of rules that determines the accessibility of variables and functions in different parts of the code. There are two types of scope: global scope and local scope. 
+    - Global scope: Variables and functions declared in the global execution context are accessible from anywhere in the code. 
+    - Local scope: Variables and functions declared inside a function are only accessible within that function and its inner functions.
 
-Quick Node inspect example:
-```
-node --inspect-brk server.js
-// Open chrome://inspect and start a CPU profile
-```
+- Scope Chain: It is the chain of execution contexts that are created when a function is called. When a variable is accessed, JavaScript looks for it in the current execution context's variable environment. If it doesn't find it there, it looks in the outer execution context's variable environment(lexical environment), and so on, until it reaches the global execution context. This chain of execution contexts is called the scope chain.
+
+    - Lexical environment: Local memory along with the reference to the outer lexical environment.
+        - when a global execution context is created, it has a reference to the global lexical environment. When a function execution context is created, it has a reference to the outer lexical environment, which is the lexical environment of the function that called it. This allows functions to access variables and functions declared in their outer scopes.
+        ```
+        - example: 
+            function outer() {
+                var x = 10;
+                function inner() {
+                    console.log(x);
+                }
+                inner();
+            }
+            outer();
+        ```
+        
+        - In the above example, 
+            - Global Execution Context -> Has the Global Lexical Environment 
+                - Global
+            - outer() Execution Context -> Has the Lexical Environment of outer() and a     reference to the Global Lexical Environmen 
+                - Local
+                - Global
+            - inner() Execution Context -> Has the Lexical Environment of inner() and a reference to the Lexical Environment of outer()
+                - Local
+                - Closure(outer)
+                - Global
 
 [Back to question list](#question-list)
 
@@ -979,54 +1021,33 @@ onmessage = (e) => {
 
 <a id="q26"></a>
 
-### 26. Design patterns and architecture for large JS apps (pub/sub, observer)
+### 26. Block Scope and Shadowing in JS
 
-- Pattern choices and when to use them:
-    - Pub/Sub (event bus): decouples publishers and subscribers; useful when many independent modules need to react to events without direct references.
-    - Observer: more tightly-coupled list of observers on a subject; useful when subjects manage their own observers.
-    - Mediator: centralizes complex communications between related components to avoid many-to-many dependencies.
-    - Flux/Redux: single source of truth, unidirectional data flow; great for predictable state management in complex UIs.
+- What is Block?
+    - Block is a set of statements enclosed in curly braces {}. It is used to group statements together.
+    Ex: if (true) somestatement;
+    - If you have multiple statements, then to make them as a single statement you need to group them. For this purpose, we use block. Block is a set of statements enclosed in curly braces {}. It is used to group statements together.
+    Ex: if (true) { somestatement1; somestatement2; }
 
-- Architecture considerations for large apps:
-    - Single source of truth vs local component state — balance global vs local state carefully.
-    - Normalize state shape (avoid deeply nested structures), use selectors to derive data.
-    - Split domain boundaries, encapsulate side effects (sagas, thunks, effects), and prefer small pure reducers.
-    - Code-splitting, lazy loading, and feature-based modules to keep initial bundle size small.
-    - Consider micro-frontends for very large teams or independently deployable UI modules.
+- Block scope: It is the scope that is created by a block of code, which is defined by curly braces {}. Variables declared with let and const are block-scoped, which means they are only accessible within the block they are declared in.
 
-- Best practices:
-    - Keep state immutable for easier reasoning and time-travel debugging.
-    - Co-locate state with the components that own it when possible.
-    - Write small, focused modules with clear public APIs and tests.
-    - Use dependency injection to make components testable and decoupled.
-
-- Examples:
-
-Observer pattern:
-```
-class Subject {
-    constructor(){ this.observers = new Set(); }
-    subscribe(fn){ this.observers.add(fn); }
-    unsubscribe(fn){ this.observers.delete(fn); }
-    notify(data){ this.observers.forEach(fn => fn(data)); }
-}
-
-const subject = new Subject();
-const logger = d => console.log('log', d);
-subject.subscribe(logger);
-subject.notify({msg:'hello'});
-```
-
-Simple Redux-like reducer example:
-```
-function todosReducer(state = [], action) {
-    switch(action.type) {
-        case 'ADD': return [...state, action.payload];
-        case 'REMOVE': return state.filter((t, i) => i !== action.payload.index);
-        default: return state;
+- Shadowing: It is the process of declaring a variable with the same name as a variable in an outer scope. The inner variable "shadows" the outer variable, which means that the inner variable takes precedence over the outer variable within its scope. 
+    ```
+    - example:
+        var x = 1;
+        {   
+            let x = 2;
+            console.log(x); // 2
+        }
+        console.log(x); // 1
     }
-}
-```
+    ```
+    - Legal shadowing: you can shadow let with let, const with const, var with var, var with let, var with const, let with const, const with let. (because let and const are block scoped and var is function scoped)
+    
+    - Illegal shadowing: you cannot shadow let with var, const with var.
+
+        - let and const are block scoped, which means they are only accessible within the block they are declared in. Once the block is exited, the variable is no longer accessible.
+        - var is function scoped, which means it is accessible within the function it is declared in. Once the function is exited, the variable is no longer accessible. If var is declared outside of any function, it is accessible throughout the entire program.
 
 [Back to question list](#question-list)
 
@@ -1062,8 +1083,575 @@ function todosReducer(state = [], action) {
 
 <a id="q28"></a>
 
-### 28. What is the shortest program in JS?
+### 28. Debouncing and Throttling
 
-- The shortest program in JS is an empty js file. When an empty js file is executed, a global execution context is created, and the global object is created. The 'this' keyword in the global execution context refers to the global object. The global object contains all the global variables and functions, and it is accessible from anywhere in the code.
+- Debouncing: A technique to limit the rate at which a function is executed. It ensures that a function is only called after a certain amount of time has passed since the last time it was invoked. This is useful for scenarios like search input fields, where you want to wait until the user has stopped typing before making an API call.
+
+- Throttling: A technique to ensure that a function is only called at most once in a specified time period. This is useful for scenarios like button clicks, where you want to prevent multiple rapid clicks from triggering the same action multiple times.   
+
+- Difference between Debouncing and Throttling:
+    - Debouncing: We wait for a pause in the user's input before executing the function.
+    - Throttling: We limit the number of times a function can be called in a specified time period.
+
+[Back to question list](#question-list)
+
+<a id="q29"></a>
+
+### 29. Currying in JS
+
+- Currying is an advanced technique in js - to transform a function of arguments n, to n functions of one or less arguments.
+- By using this technique, we don not change the functionality of a function, we just change the way it is invoked
+- Currying can be done in 2 ways
+    - With bind method
+    - With closures
+
+    ```
+    // Bind method
+        // actual function
+        let multiply = function(x, y){
+            console.log(x*y);
+        }
+
+        // currying function - fixing first argument to 2
+        let mulCurryByTwo = multiply.bind(this, 2);
+
+        mulCurryByTwo(5); //  10 - 2 * 5
+    
+    // By Closure
+        let multiplyCls = function(x){
+            return function(y){
+                console.log(x*y);
+            }
+        }
+
+        multiplyCls(2)(5); // 10
+
+    ```
+
+[Back to question list](#question-list)
+
+<a id="q30"></a>
+
+### 30. Call, Apply and Bind
+
+- These 3 are predefined methods in javascript.
+    - `Call`: This method invokes a function by specifying the owner object.
+        - Predefined function that allows you to call a function with a given `this` value and arguments provided individually with coma separated values.
+        - Ex: originalFunc.call(thisArg, arg1, arg2, arg3)
+            ```
+            function originalFunc(age, city) {
+                console.log(`Name: ${this.name}, Age: ${age}, City: ${city}`);
+            }
+
+            const myThis = { name: "John" };
+            originalFunc.call(myThis, 30, "New York"); 
+            // Name: John, Age: 30, City: New York 
+            ```
+
+    - `Apply`: It is similar to call() method, the only difference is that 
+        - call() --> takes arguments individually with coma seperated whereas, 
+        - apply() --> takes the arguments as an array
+            - Ex: originalFunc.call(thisArg, [arg1, arg2, arg3])
+    
+    - `Bind`: Unlike call() and apply() this method `returns` a new function, where the value of `this` will be bound to the owner object which is provided as parameter. Once binded you can't undo it. Arguments are passed similar to call();
+        - Ex: originalFunc.bind(thisArg, arg1);
+    
+    - `Note`: Both call() and apply() return whatever the called function returns.
+               
+[Back to question list](#question-list)
+
+<a id="q31"></a>
+
+### 31. Recursion
+- Recursion is a technique where a function calls itself to solve a problem by breaking it into smaller, similar subproblems until a base condition is met.
+    - A function invokes itself during execution.
+    - Works by dividing a problem into smaller subproblems.
+    - `Requires a base case to stop infinite calls.`
+    - Commonly used in problems like factorial, Fibonacci, and tree traversal.
+    - 
+    ```
+    function recursiveFunction(parameters) {
+        // Base case: stopping condition
+        if (baseCase) {
+            return baseCaseValue;
+        }
+
+        // Recursive case: function calls itself
+        return recursiveFunction(modifiedParameters);
+    }
+    ```
+[Back to question list](#question-list)
+
+<a id="q32"></a>
+
+### 32. What are `Set` and `Map`, and how do you use and iterate through them?
+
+- A `Set` stores unique values. Adding the same value twice keeps only one copy.
+- A `Map` stores key-value pairs. Keys can be strings, numbers, objects, or functions, and each key is unique.
+- Both preserve insertion order and are iterable with `for...of`.
+
+```js
+const numbers = new Set([1, 2, 2, 3]);
+numbers.add(4);
+console.log(numbers.has(2)); // true
+
+for (const number of numbers) {
+    console.log(number); // 1, 2, 3, 4
+}
+
+const scores = new Map([
+    ["Asha", 95],
+    ["Ben", 88]
+]);
+scores.set("Asha", 97); // Updates the existing key
+
+for (const [name, score] of scores) {
+    console.log(name, score);
+}
+
+for (const key of scores.keys()) console.log(key);
+for (const value of scores.values()) console.log(value);
+scores.forEach((value, key) => console.log(key, value));
+```
+
+`Set` also provides `values()`, `keys()`, and `entries()`. For a `Set`, `keys()` and `values()` return the same values, while `entries()` returns `[value, value]` pairs. `Map` provides `keys()`, `values()`, and `entries()` as expected.
+
+**Purpose:** Use `Set` for unique values and membership checks. Use `Map` when you need to associate keys with values.
+
+[Back to question list](#question-list)
+
+<a id="q33"></a>
+
+### 33. What are `WeakSet` and `WeakMap`, and how do you use them?
+
+- A `WeakSet` stores objects only, and each object can appear once.
+- A `WeakMap` stores key-value pairs, but its keys must be objects.
+- They hold object references weakly. If an object is no longer referenced elsewhere, JavaScript may garbage-collect it.
+- They cannot be normally iterated and do not provide `size` or `clear()`.
+
+```js
+const button = { id: 1 };
+const processed = new WeakSet();
+const metadata = new WeakMap();
+
+processed.add(button);
+metadata.set(button, { label: "Save" });
+
+console.log(processed.has(button)); // true
+console.log(metadata.get(button)); // { label: "Save" }
+processed.delete(button);
+metadata.delete(button);
+```
+
+There is no `for...of` or `forEach()` for `WeakSet` and `WeakMap`. This limitation exists because garbage collection can remove entries at any time, so their complete contents cannot be reliably listed.
+
+**Purpose:** Use weak collections for temporary metadata, private object data, caches, or tracking objects without keeping them alive in memory.
+
+[Back to question list](#question-list)
+
+<a id="q34"></a>
+
+### 34. How are `Set`, `Map`, `WeakSet`, and `WeakMap` different?
+
+| Collection | Stores | Allowed keys/values | Iteration | Keeps object references alive? |
+|---|---|---|---|---|
+| `Set` | Unique values | Any value | `for...of`, `forEach()` | Yes |
+| `Map` | Key-value pairs | Any value can be a key | `for...of`, `forEach()` | Yes |
+| `WeakSet` | Unique objects | Objects only | Not iterable | No |
+| `WeakMap` | Key-value pairs | Object keys only | Not iterable | No, for keys |
+
+```js
+const set = new Set(["js", "web"]);
+const map = new Map([["language", "JavaScript"]]);
+const weakSet = new WeakSet([{}]);
+const weakMap = new WeakMap([[{}, "metadata"]]);
+```
+
+**Purpose:** The main differences are whether the collection stores individual values or pairs, whether primitive values are allowed, whether it can be iterated, and whether it keeps objects from being garbage-collected.
+
+[Back to question list](#question-list)
+
+<a id="q35"></a>
+
+### 35. When should you use each collection?
+
+- Use `Set` to remove duplicates, track selected items, or quickly check membership.
+- Use `Map` for dictionaries, lookup tables, grouped data, or data keyed by objects.
+- Use `WeakSet` to mark objects as visited or processed without preventing garbage collection.
+- Use `WeakMap` to attach private metadata or cache data to an object without preventing garbage collection.
+
+```js
+const uniqueTags = new Set(["js", "web", "js"]);
+const userRoles = new Map([[userObject, "admin"]]);
+const visitedObjects = new WeakSet();
+const objectCache = new WeakMap();
+```
+
+**Purpose:** Choosing the right collection improves clarity and helps avoid memory leaks when data should live only as long as its related object.
+
+[Back to question list](#question-list)
+
+<a id="q36"></a>
+
+### 36. What are the commonly used JavaScript array methods?
+
+Array methods help you add, remove, search, transform, and combine items. Some methods change the original array, while others return a new array.
+
+- `push()` adds one or more items to the end and returns the new length. It changes the original array.
+
+    ```js
+    const fruits = ["apple"];
+    fruits.push("banana");
+    console.log(fruits); // ["apple", "banana"]
+    ```
+
+- `pop()` removes and returns the last item. It changes the original array.
+
+    ```js
+    const fruits = ["apple", "banana"];
+    const lastFruit = fruits.pop();
+    console.log(lastFruit); // "banana"
+    ```
+
+- `unshift()` adds items to the beginning and returns the new length. It changes the original array.
+
+    ```js
+    const numbers = [2, 3];
+    numbers.unshift(1);
+    console.log(numbers); // [1, 2, 3]
+    ```
+
+- `shift()` removes and returns the first item. It changes the original array.
+
+    ```js
+    const numbers = [1, 2, 3];
+    const firstNumber = numbers.shift();
+    console.log(firstNumber); // 1
+    ```
+
+- `slice(start, end)` returns a shallow copy of part of an array. The `end` index is not included, and the original array is not changed.
+
+    ```js
+    const numbers = [10, 20, 30, 40];
+    console.log(numbers.slice(1, 3)); // [20, 30]
+    ```
+
+- `splice(start, deleteCount, ...items)` adds, removes, or replaces items. It changes the original array.
+
+    ```js
+    const fruits = ["apple", "banana", "orange"];
+    fruits.splice(1, 1, "mango");
+    console.log(fruits); // ["apple", "mango", "orange"]
+    ```
+
+- `concat()` joins arrays or values and returns a new array.
+
+    ```js
+    console.log([1, 2].concat([3, 4])); // [1, 2, 3, 4]
+    ```
+
+- `forEach()` runs a function once for every item. It is useful for side effects, but it does not create a new array.
+
+    ```js
+    [1, 2, 3].forEach((number) => console.log(number * 2)); // 2, 4, 6
+    ```
+
+- `map()` creates a new array by transforming every item. The new array has the same length.
+
+    ```js
+    const doubled = [1, 2, 3].map((number) => number * 2);
+    console.log(doubled); // [2, 4, 6]
+    ```
+
+- `filter()` creates a new array containing only items that pass a condition.
+
+    ```js
+    const adults = [12, 20, 16, 30].filter((age) => age >= 18);
+    console.log(adults); // [20, 30]
+    ```
+
+- `reduce()` combines all items into one result, such as a sum, object, or count.
+
+    ```js
+    const total = [10, 20, 30].reduce((sum, number) => sum + number, 0);
+    console.log(total); // 60
+    ```
+
+- `find()` returns the first item that passes a condition, or `undefined` if no item matches.
+
+    ```js
+    const user = [{ id: 1 }, { id: 2 }].find((item) => item.id === 2);
+    console.log(user); // { id: 2 }
+    ```
+
+- `findIndex()` returns the index of the first matching item, or `-1` if no item matches.
+
+    ```js
+    console.log(["a", "b", "c"].findIndex((letter) => letter === "b")); // 1
+    ```
+
+- `includes()` checks whether an array contains a value and returns `true` or `false`.
+
+    ```js
+    console.log(["js", "css"].includes("js")); // true
+    ```
+
+- `some()` returns `true` when at least one item passes a condition.
+
+    ```js
+    console.log([2, 4, 7].some((number) => number % 2 !== 0)); // true
+    ```
+
+- `every()` returns `true` only when all items pass a condition.
+
+    ```js
+    console.log([2, 4, 6].every((number) => number % 2 === 0)); // true
+    ```
+
+- `sort()` sorts items in place and changes the original array. For numbers, provide a comparison function because the default sort is string-based.
+
+    ```js
+    const numbers = [10, 2, 5];
+    numbers.sort((a, b) => a - b);
+    console.log(numbers); // [2, 5, 10]
+    ```
+
+**Purpose:** These methods make array operations readable and reduce the need for manual loops. Use non-mutating methods such as `map()`, `filter()`, and `slice()` when the original array must remain unchanged.
+
+[Back to question list](#question-list)
+
+<a id="q37"></a>
+
+### 37. What are the commonly used JavaScript string methods?
+
+Strings are immutable in JavaScript. String methods return a new string or another value; they do not change the original string.
+
+- `length` returns the number of UTF-16 code units in the string.
+
+    ```js
+    console.log("Hello".length); // 5
+    ```
+
+- `toUpperCase()` and `toLowerCase()` change the letter case and return a new string.
+
+    ```js
+    console.log("JavaScript".toUpperCase()); // "JAVASCRIPT"
+    console.log("JavaScript".toLowerCase()); // "javascript"
+    ```
+
+- `trim()` removes whitespace from both ends. `trimStart()` and `trimEnd()` remove whitespace from only one side.
+
+    ```js
+    console.log("  hello  ".trim()); // "hello"
+    ```
+
+- `includes()` checks whether a string contains another string.
+
+    ```js
+    console.log("frontend developer".includes("developer")); // true
+    ```
+
+- `startsWith()` and `endsWith()` check the beginning and end of a string.
+
+    ```js
+    const fileName = "report.pdf";
+    console.log(fileName.startsWith("report")); // true
+    console.log(fileName.endsWith(".pdf")); // true
+    ```
+
+- `indexOf()` returns the first position of a matching string, or `-1` when it is not found. `lastIndexOf()` searches from the end.
+
+    ```js
+    console.log("banana".indexOf("a")); // 1
+    console.log("banana".lastIndexOf("a")); // 5
+    ```
+
+- `charAt()` returns the character at an index. `at()` also supports negative indexes.
+
+    ```js
+    const word = "hello";
+    console.log(word.charAt(1)); // "e"
+    console.log(word.at(-1)); // "o"
+    ```
+
+- `slice(start, end)` returns part of a string. The `end` index is not included and negative indexes count from the end.
+
+    ```js
+    console.log("JavaScript".slice(0, 4)); // "Java"
+    console.log("JavaScript".slice(-6)); // "Script"
+    ```
+
+- `substring(start, end)` also extracts part of a string, but treats negative values as `0`. `slice()` is usually more predictable when negative indexes are useful.
+
+    ```js
+    console.log("JavaScript".substring(4, 10)); // "Script"
+    ```
+
+- `replace(searchValue, replacement)` replaces the first match. `replaceAll()` replaces every match when using a string search value.
+
+    ```js
+    console.log("hello world".replace("world", "JavaScript")); // "hello JavaScript"
+    console.log("a-b-c".replaceAll("-", ":")); // "a:b:c"
+    ```
+
+- `split(separator)` breaks a string into an array.
+
+    ```js
+    console.log("red,green,blue".split(",")); // ["red", "green", "blue"]
+    ```
+
+- `concat()` joins strings, although the `+` operator or template literals are often easier to read.
+
+    ```js
+    console.log("Hello".concat(" ", "world")); // "Hello world"
+    ```
+
+- `repeat(count)` returns the string repeated a specific number of times.
+
+    ```js
+    console.log("ha".repeat(3)); // "hahaha"
+    ```
+
+**Purpose:** String methods are useful for validation, searching, formatting, parsing user input, and preparing text for display or API requests.
+
+[Back to question list](#question-list)
+
+<a id="q38"></a>
+
+### 38. What loops are available in JavaScript and how are they different?
+
+Loops repeat code while a condition is true or while items remain in a collection. The main differences are when the condition is checked, whether you receive an index or a value, and whether you can stop the loop with `break` or skip an item with `continue`.
+
+- `for` is useful when you know the starting value, ending condition, and update step. It is commonly used when you need an array index.
+
+    ```js
+    for (let index = 0; index < 3; index++) {
+        console.log(index); // 0, 1, 2
+    }
+    ```
+
+- `while` repeats as long as its condition is true. The condition is checked before every iteration, so it may run zero times.
+
+    ```js
+    let count = 0;
+    while (count < 3) {
+        console.log(count); // 0, 1, 2
+        count++;
+    }
+    ```
+
+- `do...while` checks its condition after running the body. Therefore, it always runs at least once.
+
+    ```js
+    let number = 5;
+    do {
+        console.log(number); // 5
+        number++;
+    } while (number < 3);
+    ```
+
+- `for...of` iterates over the values of an iterable such as an array, string, `Set`, or `Map`. It is usually the clearest loop for reading collection values.
+
+    ```js
+    for (const fruit of ["apple", "banana"]) {
+        console.log(fruit); // apple, banana
+    }
+    ```
+
+- `for...in` iterates over enumerable property keys. It is intended mainly for objects, not arrays, because array iteration can include property names and does not directly provide values.
+
+    ```js
+    const user = { name: "Asha", role: "admin" };
+    for (const key in user) {
+        console.log(key, user[key]); // name Asha, role admin
+    }
+    ```
+
+- `forEach()` is an array iteration method, not a loop statement. It calls a callback for each array item, but you cannot use `break` or `continue` to control it.
+
+    ```js
+    [10, 20, 30].forEach((value, index) => {
+        console.log(index, value); // 0 10, 1 20, 2 30
+    });
+    ```
+
+    An `async` callback does not make `forEach()` wait. The following starts all requests without waiting for each result:
+
+    ```js
+    // Usually not what you want for sequential async work.
+    items.forEach(async (item) => {
+        await saveItem(item);
+    });
+    ```
+
+    Use `for...of` when you want to wait for each operation:
+
+    ```js
+    async function saveItems(items) {
+        for (const item of items) {
+            await saveItem(item); // Waits before moving to the next item.
+        }
+    }
+    ```
+
+- `for await...of` is used with asynchronous iterables. It waits for each value and is useful for reading data from async generators or streams.
+
+    ```js
+    async function readValues() {
+        for await (const value of getAsyncValues()) {
+            console.log(value);
+        }
+    }
+    ```
+
+    `getAsyncValues()` in this example must return an async iterable, such as an async generator.
+
+#### Loops and asynchronous operations
+
+- `for`, `while`, and `do...while` support `await` inside an `async` function. They wait only when you explicitly write `await`.
+- `for...of` also supports explicit `await` inside an `async` function. It processes items sequentially when written that way.
+- `for...in` supports explicit `await` inside an `async` function, although it is normally used for object keys rather than async data.
+- `forEach()` does not wait for an `async` callback. It returns before the promises created by the callback finish.
+- `for await...of` waits for each value from an async iterable. It can also consume a normal iterable and await promise values, so it is the clearest choice for sequential asynchronous iteration.
+
+```js
+async function example(numbers) {
+    for (const number of numbers) {
+        const result = await fetchNumber(number); // Sequential
+        console.log(result);
+    }
+
+    for await (const result of getAsyncValues()) {
+        console.log(result); // Each value is awaited automatically
+    }
+}
+```
+
+#### `break` and `continue`
+
+- `break` stops the nearest loop completely.
+- `continue` skips the rest of the current iteration and moves to the next one.
+
+```js
+for (const number of [1, 2, 3, 4]) {
+    if (number === 2) continue;
+    if (number === 4) break;
+    console.log(number); // 1, 3
+}
+```
+
+#### Loop differences
+
+| Loop or method | Best use | Gives you | Runs at least once? | Supports `break` and `continue`? | Async operation behavior |
+|---|---|---|---|---|---|
+| `for` | Controlled counting or indexed arrays | Index or custom variable | No | Yes | Supports explicit `await` inside an `async` function |
+| `while` | Repeating until a condition changes | Custom variable | No | Yes | Supports explicit `await` inside an `async` function |
+| `do...while` | Code that must run before checking | Custom variable | Yes | Yes | Supports explicit `await` inside an `async` function |
+| `for...of` | Values from arrays, strings, `Set`, or `Map` | Value | No | Yes | Supports explicit `await`; processes sequentially |
+| `for...in` | Enumerable keys of an object | Property key | No | Yes | Supports explicit `await`, but is rarely used for async data |
+| `forEach()` | Simple array processing | Value, index, and array | No | No | Does not wait for an async callback |
+| `for await...of` | Values from async iterables | Resolved value | No | Yes | Awaits each value automatically |
+
+**Purpose:** Choose the loop based on the data and the control you need. Prefer `for...of` for collection values, `for...in` for object keys, `for` when you need an index or precise control, and `forEach()` when early stopping is not required.
 
 [Back to question list](#question-list)
