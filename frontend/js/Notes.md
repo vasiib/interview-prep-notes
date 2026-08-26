@@ -34,10 +34,15 @@ Javascript
 28. [Debouncing and Throttling](#q28)
 29. [Currying in JS](#q29)
 30. [Call, Apply and Bind](#q30)
-31. [](#q31)
-32. [](#q32)
-33. [](#q33)
-34. [](#q34)
+31. [Recursion](#q31)
+32. [What are `Set` and `Map`, and how do you use and iterate through them?](#q32)
+33. [What are `WeakSet` and `WeakMap`, and how do you use them?](#q33)
+34. [How are `Set`, `Map`, `WeakSet`, and `WeakMap` different?](#q34)
+35. [When should you use each collection?](#q35)
+36. [What are the commonly used JavaScript array methods?](#q36)
+37. [What are the commonly used JavaScript string methods?](#q37)
+38. [What loops are available in JavaScript and how are they different?](#q38)
+
 ---
 
 ## Answers
@@ -1177,18 +1182,476 @@ onmessage = (e) => {
     ```
 [Back to question list](#question-list)
 
-<a id="q29"></a>
+<a id="q32"></a>
 
-### 29. Dummy
+### 32. What are `Set` and `Map`, and how do you use and iterate through them?
 
-- Dummy
+- A `Set` stores unique values. Adding the same value twice keeps only one copy.
+- A `Map` stores key-value pairs. Keys can be strings, numbers, objects, or functions, and each key is unique.
+- Both preserve insertion order and are iterable with `for...of`.
+
+```js
+const numbers = new Set([1, 2, 2, 3]);
+numbers.add(4);
+console.log(numbers.has(2)); // true
+
+for (const number of numbers) {
+    console.log(number); // 1, 2, 3, 4
+}
+
+const scores = new Map([
+    ["Asha", 95],
+    ["Ben", 88]
+]);
+scores.set("Asha", 97); // Updates the existing key
+
+for (const [name, score] of scores) {
+    console.log(name, score);
+}
+
+for (const key of scores.keys()) console.log(key);
+for (const value of scores.values()) console.log(value);
+scores.forEach((value, key) => console.log(key, value));
+```
+
+`Set` also provides `values()`, `keys()`, and `entries()`. For a `Set`, `keys()` and `values()` return the same values, while `entries()` returns `[value, value]` pairs. `Map` provides `keys()`, `values()`, and `entries()` as expected.
+
+**Purpose:** Use `Set` for unique values and membership checks. Use `Map` when you need to associate keys with values.
+
 [Back to question list](#question-list)
 
-<a id="q29"></a>
+<a id="q33"></a>
 
-### 29. Dummy
+### 33. What are `WeakSet` and `WeakMap`, and how do you use them?
 
-- Dummy
+- A `WeakSet` stores objects only, and each object can appear once.
+- A `WeakMap` stores key-value pairs, but its keys must be objects.
+- They hold object references weakly. If an object is no longer referenced elsewhere, JavaScript may garbage-collect it.
+- They cannot be normally iterated and do not provide `size` or `clear()`.
+
+```js
+const button = { id: 1 };
+const processed = new WeakSet();
+const metadata = new WeakMap();
+
+processed.add(button);
+metadata.set(button, { label: "Save" });
+
+console.log(processed.has(button)); // true
+console.log(metadata.get(button)); // { label: "Save" }
+processed.delete(button);
+metadata.delete(button);
+```
+
+There is no `for...of` or `forEach()` for `WeakSet` and `WeakMap`. This limitation exists because garbage collection can remove entries at any time, so their complete contents cannot be reliably listed.
+
+**Purpose:** Use weak collections for temporary metadata, private object data, caches, or tracking objects without keeping them alive in memory.
+
 [Back to question list](#question-list)
 
+<a id="q34"></a>
 
+### 34. How are `Set`, `Map`, `WeakSet`, and `WeakMap` different?
+
+| Collection | Stores | Allowed keys/values | Iteration | Keeps object references alive? |
+|---|---|---|---|---|
+| `Set` | Unique values | Any value | `for...of`, `forEach()` | Yes |
+| `Map` | Key-value pairs | Any value can be a key | `for...of`, `forEach()` | Yes |
+| `WeakSet` | Unique objects | Objects only | Not iterable | No |
+| `WeakMap` | Key-value pairs | Object keys only | Not iterable | No, for keys |
+
+```js
+const set = new Set(["js", "web"]);
+const map = new Map([["language", "JavaScript"]]);
+const weakSet = new WeakSet([{}]);
+const weakMap = new WeakMap([[{}, "metadata"]]);
+```
+
+**Purpose:** The main differences are whether the collection stores individual values or pairs, whether primitive values are allowed, whether it can be iterated, and whether it keeps objects from being garbage-collected.
+
+[Back to question list](#question-list)
+
+<a id="q35"></a>
+
+### 35. When should you use each collection?
+
+- Use `Set` to remove duplicates, track selected items, or quickly check membership.
+- Use `Map` for dictionaries, lookup tables, grouped data, or data keyed by objects.
+- Use `WeakSet` to mark objects as visited or processed without preventing garbage collection.
+- Use `WeakMap` to attach private metadata or cache data to an object without preventing garbage collection.
+
+```js
+const uniqueTags = new Set(["js", "web", "js"]);
+const userRoles = new Map([[userObject, "admin"]]);
+const visitedObjects = new WeakSet();
+const objectCache = new WeakMap();
+```
+
+**Purpose:** Choosing the right collection improves clarity and helps avoid memory leaks when data should live only as long as its related object.
+
+[Back to question list](#question-list)
+
+<a id="q36"></a>
+
+### 36. What are the commonly used JavaScript array methods?
+
+Array methods help you add, remove, search, transform, and combine items. Some methods change the original array, while others return a new array.
+
+- `push()` adds one or more items to the end and returns the new length. It changes the original array.
+
+    ```js
+    const fruits = ["apple"];
+    fruits.push("banana");
+    console.log(fruits); // ["apple", "banana"]
+    ```
+
+- `pop()` removes and returns the last item. It changes the original array.
+
+    ```js
+    const fruits = ["apple", "banana"];
+    const lastFruit = fruits.pop();
+    console.log(lastFruit); // "banana"
+    ```
+
+- `unshift()` adds items to the beginning and returns the new length. It changes the original array.
+
+    ```js
+    const numbers = [2, 3];
+    numbers.unshift(1);
+    console.log(numbers); // [1, 2, 3]
+    ```
+
+- `shift()` removes and returns the first item. It changes the original array.
+
+    ```js
+    const numbers = [1, 2, 3];
+    const firstNumber = numbers.shift();
+    console.log(firstNumber); // 1
+    ```
+
+- `slice(start, end)` returns a shallow copy of part of an array. The `end` index is not included, and the original array is not changed.
+
+    ```js
+    const numbers = [10, 20, 30, 40];
+    console.log(numbers.slice(1, 3)); // [20, 30]
+    ```
+
+- `splice(start, deleteCount, ...items)` adds, removes, or replaces items. It changes the original array.
+
+    ```js
+    const fruits = ["apple", "banana", "orange"];
+    fruits.splice(1, 1, "mango");
+    console.log(fruits); // ["apple", "mango", "orange"]
+    ```
+
+- `concat()` joins arrays or values and returns a new array.
+
+    ```js
+    console.log([1, 2].concat([3, 4])); // [1, 2, 3, 4]
+    ```
+
+- `forEach()` runs a function once for every item. It is useful for side effects, but it does not create a new array.
+
+    ```js
+    [1, 2, 3].forEach((number) => console.log(number * 2)); // 2, 4, 6
+    ```
+
+- `map()` creates a new array by transforming every item. The new array has the same length.
+
+    ```js
+    const doubled = [1, 2, 3].map((number) => number * 2);
+    console.log(doubled); // [2, 4, 6]
+    ```
+
+- `filter()` creates a new array containing only items that pass a condition.
+
+    ```js
+    const adults = [12, 20, 16, 30].filter((age) => age >= 18);
+    console.log(adults); // [20, 30]
+    ```
+
+- `reduce()` combines all items into one result, such as a sum, object, or count.
+
+    ```js
+    const total = [10, 20, 30].reduce((sum, number) => sum + number, 0);
+    console.log(total); // 60
+    ```
+
+- `find()` returns the first item that passes a condition, or `undefined` if no item matches.
+
+    ```js
+    const user = [{ id: 1 }, { id: 2 }].find((item) => item.id === 2);
+    console.log(user); // { id: 2 }
+    ```
+
+- `findIndex()` returns the index of the first matching item, or `-1` if no item matches.
+
+    ```js
+    console.log(["a", "b", "c"].findIndex((letter) => letter === "b")); // 1
+    ```
+
+- `includes()` checks whether an array contains a value and returns `true` or `false`.
+
+    ```js
+    console.log(["js", "css"].includes("js")); // true
+    ```
+
+- `some()` returns `true` when at least one item passes a condition.
+
+    ```js
+    console.log([2, 4, 7].some((number) => number % 2 !== 0)); // true
+    ```
+
+- `every()` returns `true` only when all items pass a condition.
+
+    ```js
+    console.log([2, 4, 6].every((number) => number % 2 === 0)); // true
+    ```
+
+- `sort()` sorts items in place and changes the original array. For numbers, provide a comparison function because the default sort is string-based.
+
+    ```js
+    const numbers = [10, 2, 5];
+    numbers.sort((a, b) => a - b);
+    console.log(numbers); // [2, 5, 10]
+    ```
+
+**Purpose:** These methods make array operations readable and reduce the need for manual loops. Use non-mutating methods such as `map()`, `filter()`, and `slice()` when the original array must remain unchanged.
+
+[Back to question list](#question-list)
+
+<a id="q37"></a>
+
+### 37. What are the commonly used JavaScript string methods?
+
+Strings are immutable in JavaScript. String methods return a new string or another value; they do not change the original string.
+
+- `length` returns the number of UTF-16 code units in the string.
+
+    ```js
+    console.log("Hello".length); // 5
+    ```
+
+- `toUpperCase()` and `toLowerCase()` change the letter case and return a new string.
+
+    ```js
+    console.log("JavaScript".toUpperCase()); // "JAVASCRIPT"
+    console.log("JavaScript".toLowerCase()); // "javascript"
+    ```
+
+- `trim()` removes whitespace from both ends. `trimStart()` and `trimEnd()` remove whitespace from only one side.
+
+    ```js
+    console.log("  hello  ".trim()); // "hello"
+    ```
+
+- `includes()` checks whether a string contains another string.
+
+    ```js
+    console.log("frontend developer".includes("developer")); // true
+    ```
+
+- `startsWith()` and `endsWith()` check the beginning and end of a string.
+
+    ```js
+    const fileName = "report.pdf";
+    console.log(fileName.startsWith("report")); // true
+    console.log(fileName.endsWith(".pdf")); // true
+    ```
+
+- `indexOf()` returns the first position of a matching string, or `-1` when it is not found. `lastIndexOf()` searches from the end.
+
+    ```js
+    console.log("banana".indexOf("a")); // 1
+    console.log("banana".lastIndexOf("a")); // 5
+    ```
+
+- `charAt()` returns the character at an index. `at()` also supports negative indexes.
+
+    ```js
+    const word = "hello";
+    console.log(word.charAt(1)); // "e"
+    console.log(word.at(-1)); // "o"
+    ```
+
+- `slice(start, end)` returns part of a string. The `end` index is not included and negative indexes count from the end.
+
+    ```js
+    console.log("JavaScript".slice(0, 4)); // "Java"
+    console.log("JavaScript".slice(-6)); // "Script"
+    ```
+
+- `substring(start, end)` also extracts part of a string, but treats negative values as `0`. `slice()` is usually more predictable when negative indexes are useful.
+
+    ```js
+    console.log("JavaScript".substring(4, 10)); // "Script"
+    ```
+
+- `replace(searchValue, replacement)` replaces the first match. `replaceAll()` replaces every match when using a string search value.
+
+    ```js
+    console.log("hello world".replace("world", "JavaScript")); // "hello JavaScript"
+    console.log("a-b-c".replaceAll("-", ":")); // "a:b:c"
+    ```
+
+- `split(separator)` breaks a string into an array.
+
+    ```js
+    console.log("red,green,blue".split(",")); // ["red", "green", "blue"]
+    ```
+
+- `concat()` joins strings, although the `+` operator or template literals are often easier to read.
+
+    ```js
+    console.log("Hello".concat(" ", "world")); // "Hello world"
+    ```
+
+- `repeat(count)` returns the string repeated a specific number of times.
+
+    ```js
+    console.log("ha".repeat(3)); // "hahaha"
+    ```
+
+**Purpose:** String methods are useful for validation, searching, formatting, parsing user input, and preparing text for display or API requests.
+
+[Back to question list](#question-list)
+
+<a id="q38"></a>
+
+### 38. What loops are available in JavaScript and how are they different?
+
+Loops repeat code while a condition is true or while items remain in a collection. The main differences are when the condition is checked, whether you receive an index or a value, and whether you can stop the loop with `break` or skip an item with `continue`.
+
+- `for` is useful when you know the starting value, ending condition, and update step. It is commonly used when you need an array index.
+
+    ```js
+    for (let index = 0; index < 3; index++) {
+        console.log(index); // 0, 1, 2
+    }
+    ```
+
+- `while` repeats as long as its condition is true. The condition is checked before every iteration, so it may run zero times.
+
+    ```js
+    let count = 0;
+    while (count < 3) {
+        console.log(count); // 0, 1, 2
+        count++;
+    }
+    ```
+
+- `do...while` checks its condition after running the body. Therefore, it always runs at least once.
+
+    ```js
+    let number = 5;
+    do {
+        console.log(number); // 5
+        number++;
+    } while (number < 3);
+    ```
+
+- `for...of` iterates over the values of an iterable such as an array, string, `Set`, or `Map`. It is usually the clearest loop for reading collection values.
+
+    ```js
+    for (const fruit of ["apple", "banana"]) {
+        console.log(fruit); // apple, banana
+    }
+    ```
+
+- `for...in` iterates over enumerable property keys. It is intended mainly for objects, not arrays, because array iteration can include property names and does not directly provide values.
+
+    ```js
+    const user = { name: "Asha", role: "admin" };
+    for (const key in user) {
+        console.log(key, user[key]); // name Asha, role admin
+    }
+    ```
+
+- `forEach()` is an array iteration method, not a loop statement. It calls a callback for each array item, but you cannot use `break` or `continue` to control it.
+
+    ```js
+    [10, 20, 30].forEach((value, index) => {
+        console.log(index, value); // 0 10, 1 20, 2 30
+    });
+    ```
+
+    An `async` callback does not make `forEach()` wait. The following starts all requests without waiting for each result:
+
+    ```js
+    // Usually not what you want for sequential async work.
+    items.forEach(async (item) => {
+        await saveItem(item);
+    });
+    ```
+
+    Use `for...of` when you want to wait for each operation:
+
+    ```js
+    async function saveItems(items) {
+        for (const item of items) {
+            await saveItem(item); // Waits before moving to the next item.
+        }
+    }
+    ```
+
+- `for await...of` is used with asynchronous iterables. It waits for each value and is useful for reading data from async generators or streams.
+
+    ```js
+    async function readValues() {
+        for await (const value of getAsyncValues()) {
+            console.log(value);
+        }
+    }
+    ```
+
+    `getAsyncValues()` in this example must return an async iterable, such as an async generator.
+
+#### Loops and asynchronous operations
+
+- `for`, `while`, and `do...while` support `await` inside an `async` function. They wait only when you explicitly write `await`.
+- `for...of` also supports explicit `await` inside an `async` function. It processes items sequentially when written that way.
+- `for...in` supports explicit `await` inside an `async` function, although it is normally used for object keys rather than async data.
+- `forEach()` does not wait for an `async` callback. It returns before the promises created by the callback finish.
+- `for await...of` waits for each value from an async iterable. It can also consume a normal iterable and await promise values, so it is the clearest choice for sequential asynchronous iteration.
+
+```js
+async function example(numbers) {
+    for (const number of numbers) {
+        const result = await fetchNumber(number); // Sequential
+        console.log(result);
+    }
+
+    for await (const result of getAsyncValues()) {
+        console.log(result); // Each value is awaited automatically
+    }
+}
+```
+
+#### `break` and `continue`
+
+- `break` stops the nearest loop completely.
+- `continue` skips the rest of the current iteration and moves to the next one.
+
+```js
+for (const number of [1, 2, 3, 4]) {
+    if (number === 2) continue;
+    if (number === 4) break;
+    console.log(number); // 1, 3
+}
+```
+
+#### Loop differences
+
+| Loop or method | Best use | Gives you | Runs at least once? | Supports `break` and `continue`? | Async operation behavior |
+|---|---|---|---|---|---|
+| `for` | Controlled counting or indexed arrays | Index or custom variable | No | Yes | Supports explicit `await` inside an `async` function |
+| `while` | Repeating until a condition changes | Custom variable | No | Yes | Supports explicit `await` inside an `async` function |
+| `do...while` | Code that must run before checking | Custom variable | Yes | Yes | Supports explicit `await` inside an `async` function |
+| `for...of` | Values from arrays, strings, `Set`, or `Map` | Value | No | Yes | Supports explicit `await`; processes sequentially |
+| `for...in` | Enumerable keys of an object | Property key | No | Yes | Supports explicit `await`, but is rarely used for async data |
+| `forEach()` | Simple array processing | Value, index, and array | No | No | Does not wait for an async callback |
+| `for await...of` | Values from async iterables | Resolved value | No | Yes | Awaits each value automatically |
+
+**Purpose:** Choose the loop based on the data and the control you need. Prefer `for...of` for collection values, `for...in` for object keys, `for` when you need an index or precise control, and `forEach()` when early stopping is not required.
+
+[Back to question list](#question-list)
