@@ -31,6 +31,59 @@ A complete guide to all OOP concepts in JavaScript with clear explanations and e
 
 An **object** is a collection of key-value pairs. Keys are called **properties**, and when a value is a function, it's called a **method**.
 
+In JavaScript, an object can be created in the following ways:
+
+1. Object
+2. Using `Class`
+3. `create()` Method
+4. Object Literals
+5. Using `Function`
+6. Object Constructor
+
+Examples:
+
+```js
+// 1. Object literal
+const person = {
+  name: "Alice",
+  age: 25,
+  greet() {
+    console.log(`Hi, I'm ${this.name}`);
+  }
+};
+
+// 2. Using class
+class Student {
+  constructor(name) {
+    this.name = name;
+  }
+}
+
+const student = new Student("Bob");
+
+// 3. Object.create() method
+const proto = {
+  greet() {
+    console.log("Hello from prototype");
+  }
+};
+
+const obj = Object.create(proto);
+
+// 4. Object constructor
+const car = new Object();
+car.brand = "Tesla";
+
+// 5. Using function constructor
+function Employee(name) {
+  this.name = name;
+}
+
+const emp = new Employee("Alice");
+```
+
+These are the common ways of creating objects in JavaScript.
+
 ```js
 const person = {
   name: "Alice",

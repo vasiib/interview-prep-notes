@@ -42,7 +42,9 @@ Javascript
 36. [What are the commonly used JavaScript array methods?](#q36)
 37. [What are the commonly used JavaScript string methods?](#q37)
 38. [What loops are available in JavaScript and how are they different?](#q38)
-
+39. [Why do we use the `debugger` statement in JavaScript?](#q39)
+40. [What are the different data types in JavaScript?](#q40)
+41. [Fundamentals in JS](#q41)
 ---
 
 ## Answers
@@ -57,6 +59,14 @@ Javascript
 
 - `Temporal Dead Zone (TDZ)` It is the time between the creation of a variable and its initialization. During this time, the variable is in a "dead" state, and it cannot be accessed. If you try to access a variable in the TDZ, you will get a ReferenceError
 
+- JavaScript is a dynamically(loosely) typed language. In a dynamically typed language, the type of a variable is checked during run-time in contrast to a statically typed language, where the type of a variable is checked during compile-time.
+
+- Since javascript is a loosely(dynamically) typed language, variables in JS are not associated with any type. A variable can hold the value of any data type. For example, a variable that is assigned a number type can be converted to a string type:
+    ```
+    var a = 23;
+    var a = "Hello World!";
+    ```
+
 [Back to question list](#question-list)
 
 <a id="q2"></a>
@@ -68,6 +78,81 @@ Javascript
 - In a constructor, `this` refers to the newly created instance.
 - In arrow functions, `this` is lexically inherited from the surrounding scope.
 
+    - #### Arrow function vs Normal function
+        - `Syntax`: Arrow functions allows developer to accomplish the same result with fewer lines of code
+        - `Arguments binding`: Arrow functions do not have an arguments binding
+            ```
+            let myObj = {
+                showArgs: function () {
+                    console.log(arguments);
+                },
+                showArgsArrow: () => {
+                    console.log(arguments);
+                }
+            };
+            myObj.showArgs(1, 2, 4, 5); //[Arguments] { '0': 1, '1': 2, '2': 4, '3': 5 }
+            myObj.showArgsArrow(1, 2, 4, 5); //ReferenceError: arguments is not defined
+            ```
+        - `this`: Arrow functions do not have their own this, they have always depends on the obj of outer scope.
+            ```
+            let myObj = {
+                name: "vaseem",
+                thisInNormal: function () {
+                    console.log(`this in normal function: ${this.name}`);
+                },
+                thisInArrow: () => {
+                    console.log(`this in arrow function: ${this.name}`);
+                },
+            };
+            myObj.thisInNormal(); //this in normal function: vaseem
+            myObj.thisInArrow(); //this in arrow function: undefined
+                //as there is no name property in the outer scope(global scope), and arrow functions do not have their own 'this' context
+
+            ```
+        - `new keyword`: Regular functions created with keyword funtion are callable and constructible - so they can called using the new keyword.
+        But arrow functions are only callable not contructible.
+            ```
+            function NewTest(){...}
+            const newTestObj = new NewTest();
+            ```
+        - `Generator function*`: Arrow functions cannot be used as generator functions.
+            - Introduced in the ES6 version, generator functions are a special class of functions.
+            - They can be stopped `midway` and then `continue` from where they had stopped.
+            - Generator functions are declared with the `function*` keyword instead of the normal function keyword.
+            ```
+            function* genFunc(){
+                // Perform operation
+            }
+            ```
+            - In the case of generator functions, when called, they do not execute the code, instead, they return a generator object. This generator object handles the execution.
+            ```
+            function* genFunc(){
+                yield 3;
+                yield 4;
+            }
+            genFunc(); // Returns Object [Generator] {}
+            ```
+            - The generator object consists of a method called next(), this method when called, executes the code until the nearest yield statement, and returns the yield value.
+                - For example, if we run the next() method on the above code:
+                ```
+                    genFunc().next(); // Returns {value: 3, done:false}
+                ```
+            - As one can see the next method returns an object consisting of a value and done properties. Value property represents the yielded value. Done property tells us whether the function code is finished or not. (Returns true if finished).
+            - Generator functions are used to return iterators. Let’s see an example where an iterator is returned:
+                ```
+                function* iteratorFunc() {
+                    let count = 0;
+                    for (let i = 0; i < 2; i++) {
+                        count++;
+                        yield i; 
+                    }
+                    return count;
+                }
+                let iterator = iteratorFunc();
+                console.log(iterator.next()); // {value:0,done:false}
+                console.log(iterator.next()); // {value:1,done:false}
+                console.log(iterator.next()); // {value:2,done:true}
+                ```
 [Back to question list](#question-list)
 
 <a id="q3"></a>
@@ -158,13 +243,23 @@ Javascript
 <a id="q5"></a>
 
 ### 5. What is the difference between `==` and `===`?
+- Both are comparison operators. The difference between both the operators is that
+“==” is used to compare values whereas, “ === “ is used to compare both values and
+types.
 
 - `==` performs type coercion before comparison. ( )
 - `===` performs strict equality without type conversion.
+- Primitives (string, number, boolean, null, undefined, symbol, bigint) → compared by value.
+- Objects (arrays, functions, objects, dates, etc.) → compared by reference.
+
 
   ```
   "4" == 4 // gives true (JavaScript applies coercion rules.)
   "4" === 4 // gives false, as it checks bot value and type
+  [] === [] // false, as Arrays are objects in JavaScript. Since they are two different objects,the comparison is false.
+  {} === {} // false, as compared by reference.
+  '' === '' // true, as compared by value.
+  [] === {} // false
   ```
 
   #### Coercion rules:
@@ -178,9 +273,9 @@ Javascript
         - Type coercion in JavaScript is the process of automatically or implicitly converting values from one data type to another.
         - Since JavaScript is loosely typed, it tries to "guess" what type you mean when performing operations.
         - `Explicit Coercion` (done manually by developer)
-
+        - `Implicit Coercion`: Implicit type coercion in javascript is the automatic conversion of value from one data type to another. It takes place when the operands of an expression are of different data types.
   ```
-  // Implicit Coercion
+  //Implicit Coercion
   console.log("5" + 1);   // "51" → number 1 coerced to string
   console.log("5" - 1);   // 4   → string "5" coerced to number
   console.log(true + 1);  // 2   → true coerced to number (1)
@@ -197,6 +292,11 @@ Javascript
   String(42);     // "42"
   Boolean(0);     // false
   ```
+  #### Logical operators:
+    - Logical operators in javascript, unlike operators in other programming languages, do not return true or false. They always return one of the operands.
+    - OR ( || ) operator - If the first value is truthy, then the first value is returned. Otherwise, always the second value gets returned.
+    - AND ( && ) operator - If both the values are truthy, always the second value is returned. If the first value is falsy then the first value is returned or if the second value is falsy then the second value is returned.
+
 
 [Back to question list](#question-list)
 
@@ -321,7 +421,7 @@ Javascript
   // Internally what does new do ?
       const obj = {};
       obj.__proto__ = Person.prototype;
-      User.call(obj, "Jon");
+      Person.call(obj, "Jon");
 
       return obj;
   ```
@@ -435,6 +535,7 @@ Javascript
     - Pending: The initial state of a Promise, before it has been resolved or rejected.
     - Fulfilled: The state of a Promise when the asynchronous operation has completed successfully and a value is available.
     - Rejected: The state of a Promise when the asynchronous operation has failed and an error is available.
+    - Settled: Either fulfilled or rejected
   - A Promise is created using the Promise constructor, which takes a single argument: a function that takes two parameters, resolve and reject. The resolve function is called when the asynchronous operation is successful, and the reject function is called when the operation fails.
     ```
     Example:
@@ -515,10 +616,15 @@ Javascript
 - Everything in JavaScript is executed inside an execution context. There are two types of execution contexts: `global execution context` and `function execution context`.
 - The global execution context is created when the JavaScript code starts executing, and it contains the global object and the 'this' keyword.
 - Each time a function is called, a new function execution context is created, which contains the function's arguments, local variables, and the value of 'this' for that function. When a function finishes executing, its execution context is destroyed, and control returns to the previous execution context.
-- Execution Context: it has 2 phases one is `memory creation phase` and second is `code execution phase`.
-  - In memory creation phase, the variables and functions are `hoisted` (memory is allocated).
-    - Variables are initialized with undefined, and functions are initialized with their code.
-    - Function declarations are hoisted with their definitions; `var` variables are hoisted with `undefined`; `let`/`const` are hoisted but not initialized.
+- `Hoisting` : Execution Context - it has 2 phases one is `memory creation phase` and second is `code execution phase`.
+  - In memory creation phase, the variables and functions are `hoisted` (memory is allocated). This is called hoisting. (Hoisting is the default behaviour of javascript where all the variable and function
+declarations are moved on top.)
+
+    - Variables are initialized with undefined, and functions are initialized with their code. Function declarations are hoisted with their definitions;
+    -  `var` variables are hoisted with `undefined`; `let`/`const` are hoisted but they will be in TDZ.
+    - Variable initializations are not hoisted, only variable declarations are hoisted.
+    - To avoid hoisting, you can run javascript in strict mode by using “use strict” on top of the code
+
   - In code execution phase, the code is executed line by line.
 - For every function call, a new execution context is created. Each execution context has its own variable environment. When a variable is accessed, JavaScript looks for it in the current execution context's variable environment.
   - If it doesn't find it there, it looks in the outer execution context's variable environment, and so on, until it reaches the global execution context.
@@ -1194,6 +1300,7 @@ onmessage = (e) => {
 const numbers = new Set([1, 2, 2, 3]);
 numbers.add(4);
 console.log(numbers.has(2)); // true
+typeof numbers; // 'object'
 
 for (const number of numbers) {
     console.log(number); // 1, 2, 3, 4
@@ -1204,6 +1311,7 @@ const scores = new Map([
     ["Ben", 88]
 ]);
 scores.set("Asha", 97); // Updates the existing key
+typeof scores; //'object'
 
 for (const [name, score] of scores) {
     console.log(name, score);
@@ -1653,5 +1761,165 @@ for (const number of [1, 2, 3, 4]) {
 | `for await...of` | Values from async iterables | Resolved value | No | Yes | Awaits each value automatically |
 
 **Purpose:** Choose the loop based on the data and the control you need. Prefer `for...of` for collection values, `for...in` for object keys, `for` when you need an index or precise control, and `forEach()` when early stopping is not required.
+
+[Back to question list](#question-list)
+
+<a id="q39"></a>
+
+### 39. Why do we use the `debugger` statement in JavaScript?
+
+- The `debugger` statement pauses JavaScript execution at that line when the browser's developer tools are open. This lets you inspect variables, evaluate expressions, and move through the remaining code one line at a time.
+- If no debugger is available, the statement has no effect and execution continues normally.
+
+```js
+function calculateTotal(price, tax) {
+    let total = price + tax;
+    debugger; // Execution pauses here when DevTools is open.
+    return total;
+}
+
+console.log(calculateTotal(100, 20));
+```
+
+[Back to question list](#question-list)
+
+<a id="q40"></a>
+
+### 40. What are the different data types in JavaScript?
+
+JavaScript data types are divided into primitive and non-primitive types. The `typeof` operator can be used for a quick type check.
+
+- Primitive types store a single value and include `string`, `number`, `bigint`, `boolean`, `undefined`, `symbol`, and `null`.
+
+    ```
+    typeof "John Doe" // Returns "string"
+    typeof 3.14 // Returns "number"
+    typeof true // Returns "boolean"
+    typeof 234567890123456789012345678901234567890n // Returns bigint
+    typeof undefined // Returns "undefined"
+    typeof null // Returns "object" (kind of a legacy bug in JavaScript)
+    typeof Symbol('symbol') // Returns Symbol
+    ```
+
+- Non-primitive values are objects and can store collections or more complex structures.      Arrays, dates, maps, sets, and regular objects all return `"object"` when checked with `typeof`.
+    - Functions are callable objects, but `typeof` returns `"function"` for them. JavaScript classes are also technically functions.
+    ```
+    function greet() {
+        return "Hello!";
+    }
+
+    console.log(typeof greet); // Output: "function"
+    console.log(typeof function() {}); // Output: "function"
+    console.log(typeof (() => {})); // Output: "function"
+
+    class Person {}
+    //Even classes in JavaScript are technically functions//
+    console.log(typeof Person); // Output: "function"
+    console.log(typeof undeclaredVar); // "undefined"
+    ```
+- `instanceof` - Checks if an object is an instance of a particular constructor (prototype chain).
+    ```
+    typeof myFunc   //"function"
+    myFunc instanceof Function //true
+
+    function greet() { return "Hello"; }
+
+    // Using typeof
+    console.log(typeof greet); // "function"
+
+    // Using instanceof
+    console.log(greet instanceof Function); // true
+
+    // Functions are objects too
+    console.log(typeof greet === "object"); // false, because typeof gives "function"
+    console.log(greet instanceof Object); // `true`, because functions inherit from Object
+    ```
+
+- `typeof` → Quick type check. Best for primitives and functions.
+- `instanceof` → Prototype chain check. Best for verifying if an object was created by a specific constructor.
+
+[Back to question list](#question-list)
+
+<a id="q41"></a>
+
+### 41. Fundamental questions in JS.
+- Fundamental Questions
+
+    #### 1. What is NaN property in JavaScript?
+    - NaN property represents the “Not-a-Number” value. It indicates a value that is not a legal number.
+    - `typeof of NaN` will return a `Number`.
+    - To check if a value is NaN, we use the isNaN() function.
+        - isNaN() function converts the given value to a Number type, and then equates to NaN.
+    ```js
+    isNaN("Hello") // Returns true
+    isNaN(345) // Returns false
+    isNaN('1') // Returns false, since '1' is converted to Number type which results in 0
+    isNaN(true) // Returns false, since true converted to Number type results in 1
+    isNaN(false) // Returns false
+    isNaN(undefined) // Returns true
+    ```
+
+    #### 2. Explain passed by value and passed by reference
+    - In JavaScript, primitive data types are passed by value and non-primitive data types are passed by reference.
+    - For understanding passed by value and passed by reference, we need to understand what happens when we create a variable and assign a value to it,
+    ```js
+    var x = 2;
+    ```
+    - In the above example, we created a variable x and assigned it a value of “2”. In the background, the “=” (assign operator) allocates some space in the memory, stores the value “2” and returns the location of the allocated memory space. Therefore, the variable x in the above code points to the location of the memory space instead of pointing to the value 2 directly.
+    - Assign operator behaves differently when dealing with primitive and non-primitive data types,
+        - Assign operator dealing with primitive types:
+
+            ![Pass By Value](../../images/pass-by-value.png)
+            
+            ```js
+            var y = 234;
+            var z = y;
+            ```
+            - In the above example, the assign operator knows that the value assigned to y is a primitive type (number type in this case), so when the second line code executes, where the value of y is assigned to z, the assign operator takes the value of y (234) and allocates a new space in the memory and returns the address. Therefore, variable z is not pointing to the location of variable y, instead, it is pointing to a new location in the memory.
+            ```js
+            var y = #8454; // y pointing to `address` of the value 234
+            var z = y;
+            var z = #5411; // z pointing to a completely new address of the value 234
+            // Changing the value of y
+            y = 23;
+            console.log(z); // Returns 234, since z points to a new address in the memory
+            ```
+            
+
+
+        - Assign operator dealing with non-primitive types:
+
+            ![Pass By reference](../../images/pass-by-ref.png)
+            
+                ```js
+                var obj = { name: "Vivek", surname: "Bisht" };
+                var obj2 = obj;
+                ```
+            - In the above example, the assign operator directly passes the location of the variable obj to the variable obj2. In other words, the reference of the variable obj is passed to the variable obj2.
+
+                ```js
+                var obj = #8711; // obj pointing to address of { name: "Vivek", surname: "Bisht" }
+                var obj2 = obj;
+                var obj2 = #8711; // obj2 pointing to the same address
+                // changing the value of obj1
+                obj1.name = "Akki";
+                console.log(obj2);
+                // Returns {name:"Akki", surname:"Bisht"} since both the variables are pointing to the same obj
+                ```
+    
+    #### 3. What is an Immediately Invoked Function in JavaScript?
+    - An Immediately Invoked Function ( known as IIFE and pronounced as IIFY) is a function that runs as soon as it is defined.
+        ```js
+            (function(){
+            // Do something;
+            })();
+        ```
+    - It has 2 set of parenthesis. 
+        - () - first set to remove the error explained below
+        - () - to invoke the function
+    - While executing javascript code, whenever the compiler sees the word “function”, it assumes that we are declaring a function in the code. Therefore, if we do not use the first set of parentheses, the compiler throws an error because it thinks we are declaring a function, and by the syntax of declaring a function, a function `should always have a name`.
+    - To remove this error, we add the first set of parenthesis that tells the compiler that the function is not a function declaration, instead, it’s a function expression.
+
+
 
 [Back to question list](#question-list)
