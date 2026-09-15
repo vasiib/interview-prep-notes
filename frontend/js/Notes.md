@@ -1335,8 +1335,10 @@ scores.forEach((value, key) => console.log(key, value));
 - A `WeakSet` stores objects only, and each object can appear once.
 - A `WeakMap` stores key-value pairs, but its keys must be objects.
 - They hold object references weakly. If an object is no longer referenced elsewhere, JavaScript may garbage-collect it.
+- The keys in weakmap should always be an object and values can be of any type.
+- If there are `no references` to the object, the object will be `garbage collected` and the entry in WeakMap disappears automatically..
 - They cannot be normally iterated and do not provide `size` or `clear()`.
-
+- `weak reference`: Doesn’t prevent the object from being garbage‑collected.
 ```js
 const button = { id: 1 };
 const processed = new WeakSet();
@@ -1349,9 +1351,57 @@ console.log(processed.has(button)); // true
 console.log(metadata.get(button)); // { label: "Save" }
 processed.delete(button);
 metadata.delete(button);
-```
 
-There is no `for...of` or `forEach()` for `WeakSet` and `WeakMap`. This limitation exists because garbage collection can remove entries at any time, so their complete contents cannot be reliably listed.
+//ex: garbage collected
+let wm = new WeakMap();
+
+let user = { name: "Vaseem" };
+wm.set(user, "Session Data");
+
+// Later in the code
+user = null; // remove the only strong reference
+
+/*The object { name: "Vaseem" } has no strong references left.
+The WeakMap still has a weak reference, but that doesn’t stop garbage collection.
+The JavaScript engine will automatically remove that entry from wm during its next GC cycle.*/
+```
+```js
+// Practical Example:
+// Create a WeakMap to hold private data
+const privateData = new WeakMap();
+
+class User {
+  constructor(name) {
+    // Store private data linked to this instance
+    privateData.set(this, { name, loggedIn: false });
+  }
+
+  login() {
+    const data = privateData.get(this);
+    data.loggedIn = true;
+    console.log(`${data.name} logged in`);
+  }
+
+  logout() {
+    const data = privateData.get(this);
+    data.loggedIn = false;
+    console.log(`${data.name} logged out`);
+  }
+}
+
+// Create a user instance
+let vaseem = new User("Vaseem");
+vaseem.login();
+
+// Later, remove the reference
+vaseem = null; // 🚀 Instance is no longer referenced
+```
+- The privateData WeakMap stores { name, loggedIn } associated with the User instance.
+- When vaseem is set to null, the object becomes unreachable.
+- The WeakMap’s weak reference allows the garbage collector to remove that entry automatically.
+- No manual cleanup is needed — memory is freed silently.
+*****************************************************************************
+- There is no `for...of` or `forEach()` for `WeakSet` and `WeakMap`. This limitation exists because garbage collection can remove entries at any time, so their complete contents cannot be reliably listed.
 
 **Purpose:** Use weak collections for temporary metadata, private object data, caches, or tracking objects without keeping them alive in memory.
 
@@ -1920,6 +1970,13 @@ JavaScript data types are divided into primitive and non-primitive types. The `t
     - While executing javascript code, whenever the compiler sees the word “function”, it assumes that we are declaring a function in the code. Therefore, if we do not use the first set of parentheses, the compiler throws an error because it thinks we are declaring a function, and by the syntax of declaring a function, a function `should always have a name`.
     - To remove this error, we add the first set of parenthesis that tells the compiler that the function is not a function declaration, instead, it’s a function expression.
 
-
-
+    #### 4. Is JavaScript a pass-by-reference or pass-by-value language?
+    - JavaScript is always pass‑by‑value, but when that value is a reference, it behaves like pass‑by‑reference for object mutations — though reassigning the parameter itself doesn’t affect the original reference.
+        - Primitives (like number, string, boolean, null, undefined, symbol, bigint) are `passed by value`. That means a copy of the value is sent to the function — changes inside the function don’t affect the original variable.
+        - Objects, arrays, and functions are also `passed by value` — but the value being passed is a reference to the object’s memory location. So, while the reference itself is copied, both variables point to the same underlying object.
+    
+    #### 5. defer vs async
+    - By default, scripts are executed in the order they are encountered in the HTML document. However, when using defer or async, the order of execution may not be guaranteed, as the scripts may be executed at different times depending on their download and execution times.
+    - defer: The defer attribute tells the browser to continue downloading the HTML page while the JavaScript file is being downloaded in the background. The script will be executed after the HTML document has been completely parsed. This is useful for scripts that do not need to be executed immediately and can wait until the page is fully loaded.
+    - async: The async attribute tells the browser to download the JavaScript file in the background while the HTML page is being downloaded. The script will be executed as soon as it is downloaded, without waiting for the HTML document to be completely parsed. This is useful for scripts that need to be executed as soon as possible, such as analytics or advertising scripts.
 [Back to question list](#question-list)
