@@ -1979,4 +1979,46 @@ JavaScript data types are divided into primitive and non-primitive types. The `t
     - By default, scripts are executed in the order they are encountered in the HTML document. However, when using defer or async, the order of execution may not be guaranteed, as the scripts may be executed at different times depending on their download and execution times.
     - defer: The defer attribute tells the browser to continue downloading the HTML page while the JavaScript file is being downloaded in the background. The script will be executed after the HTML document has been completely parsed. This is useful for scripts that do not need to be executed immediately and can wait until the page is fully loaded.
     - async: The async attribute tells the browser to download the JavaScript file in the background while the HTML page is being downloaded. The script will be executed as soon as it is downloaded, without waiting for the HTML document to be completely parsed. This is useful for scripts that need to be executed as soon as possible, such as analytics or advertising scripts.
+
+    #### 6. First class function/citizens in JS
+    - In JavaScript, functions are first-class citizens, which means they can be treated like any other value. This allows functions to be assigned to variables, passed as arguments to other functions, and returned from functions.
+    - First-class functions enable higher-order functions, which are functions that can take other functions as arguments or return them as results. This allows for powerful abstractions and functional programming techniques in JavaScript.
+    
+    - Function statement aka function declaration:
+        ```js
+        function a() {
+            console.log("a");
+        }
+        ```
+    - Function expression:
+        ```js
+        const a = function() {
+            console.log("a");
+        };
+        ```
+    
+    - The main difference between function statements and function expressions is that function statements are hoisted, while function expressions are not. This means that function statements can be called before they are defined, while function expressions cannot.
+
+    - Ananymous function: A function without a name. It can be used as a function expression or passed as an argument to another function.
+        ```js
+        var c = function() {
+            console.log("c");
+        }```
+    
+    - Named function expression: A function expression that has a name. It can be used to refer to itself within its own body, which is useful for recursion or for debugging purposes.
+        ```js
+        var c = function myFunc() {
+            console.log("c");
+        }```
+        
+    - myFunc is not accessible outside the function expression, but it can be used within the function body to refer to itself.
+    
+    - Arrow function: A concise way to write functions in JavaScript. It has a shorter syntax and does not have its own this, arguments, super, or new.target. Arrow functions are always anonymous.
+        ```js
+        const a = () => {
+            console.log("a");
+        }```
+    
+    - callback function: A function that is passed as an argument to another function and is executed after some operation has been completed. Callback functions are commonly used in asynchronous programming, such as when making API calls or handling events.
+    
 [Back to question list](#question-list)
